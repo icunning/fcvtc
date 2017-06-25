@@ -1,0 +1,1 @@
+this file is deprecated use dx101_a.bin and dx101_a.xml instead

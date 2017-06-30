@@ -10,6 +10,12 @@
     <height>607</height>
    </rect>
   </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
@@ -19,7 +25,7 @@
      <rect>
       <x>40</x>
       <y>50</y>
-      <width>791</width>
+      <width>871</width>
       <height>171</height>
      </rect>
     </property>
@@ -51,9 +57,20 @@
      <rect>
       <x>40</x>
       <y>240</y>
-      <width>791</width>
+      <width>871</width>
       <height>301</height>
      </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
+    <property name="inputMethodHints">
+     <set>Qt::ImhNone</set>
+    </property>
+    <property name="tabKeyNavigation">
+     <bool>false</bool>
     </property>
     <property name="alternatingRowColors">
      <bool>true</bool>
@@ -61,24 +78,58 @@
     <property name="sortingEnabled">
      <bool>true</bool>
     </property>
-    <column>
-     <property name="text">
-      <string notr="true">TagID</string>
-     </property>
-    </column>
+    <attribute name="verticalHeaderVisible">
+     <bool>false</bool>
+    </attribute>
+    <attribute name="verticalHeaderDefaultSectionSize">
+     <number>52</number>
+    </attribute>
     <column>
      <property name="text">
       <string>Name</string>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>14</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
      </property>
     </column>
     <column>
      <property name="text">
       <string>Time</string>
      </property>
+     <property name="font">
+      <font>
+       <pointsize>14</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
     </column>
     <column>
      <property name="text">
       <string>LapTime (sec)</string>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>14</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+    </column>
+    <column>
+     <property name="text">
+      <string>LapSpeed (km/h)</string>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>14</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
      </property>
     </column>
    </widget>
@@ -89,7 +140,7 @@
      <x>0</x>
      <y>0</y>
      <width>940</width>
-     <height>20</height>
+     <height>26</height>
     </rect>
    </property>
   </widget>

@@ -4,8 +4,10 @@
 
 #include <QObject>
 #include <QString>
+#include <QTimer>
 
-#include "ltkcpp.h"
+#include "main.h"
+//#include "ltkcpp.h"
 
 
 class CTagInfo {
@@ -14,8 +16,6 @@ public:
     void clear(void);
     int readerId;
     int antennaId;
-    //unsigned long long getTimeStampUSec(void);
-    //double getTimeStampSec(void);
     double timeStampSec;
     QList<unsigned char> data;
     unsigned long long timeStampUSec;
@@ -32,28 +32,33 @@ public:
 private:
     int readerId;
     int verbose;
-    LLRP::CConnection *pConnectionToReader;
-    LLRP::CTypeRegistry *pTypeRegistry;
     int checkConnectionStatus(void);
-    LLRP::CMessage *recvMessage(int nMaxMS);
-    void printXMLMessage(LLRP::CMessage *pMessage);
     int scrubConfiguration(void);
     int resetConfigurationToFactoryDefaults(void);
     int deleteAllROSpecs(void);
     int addROSpec(void);
     int enableROSpec(void);
     int startROSpec(void);
+    int awaitReports(void);
+#ifndef NOHARDWARE
+    LLRP::CConnection *pConnectionToReader;
+    LLRP::CTypeRegistry *pTypeRegistry;
+    LLRP::CMessage *recvMessage(int nMaxMS);
+    void printXMLMessage(LLRP::CMessage *pMessage);
     void handleReaderEventNotification(LLRP::CReaderEventNotificationData *pNtfData);
     void handleAntennaEvent(LLRP::CAntennaEvent *pAntennaEvent);
     void handleReaderExceptionEvent(LLRP::CReaderExceptionEvent *pReaderExceptionEvent);
     int checkLLRPStatus(LLRP::CLLRPStatus *pLLRPStatus, char *pWhatStr);
     LLRP::CMessage *transact (LLRP::CMessage *pSendMsg);
     int sendMessage(LLRP::CMessage *pSendMsg);
-    int awaitReports(void);
     void processTagList(LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT);
+#endif
+    QTimer testTimer;
 signals:
     void newTag(CTagInfo);
     void newLogMessage(QString);
+private slots:
+    void onTestTimerTimeout(void);
 };
 
 #endif // CREADER_H

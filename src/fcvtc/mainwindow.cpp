@@ -9,9 +9,11 @@
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include "ltkcpp.h"
+//#include "ltkcpp.h"
 #include "creader.h"
 
+
+extern double blackLineDistancem;
 
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -21,6 +23,12 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
 
     // Configure table
+
+    QTableWidget *t = ui->lapTimesTableWidget;
+    t->setColumnWidth(0, 250);
+    t->setColumnWidth(1, 100);
+    t->setColumnWidth(2, 150);
+    t->setColumnWidth(3, 200);
 
 
     try {
@@ -108,54 +116,75 @@ void MainWindow::onNewTag(CTagInfo tagInfo) {
 
     int tagId = tagInfo.data[4] << 8 | tagInfo.data[5];
 
-    // Get name from dBase for tagId
+    // Get name from dBase
 
     QString name;
-    if (tableEntryCount % 2) {
+    switch (tagId) {
+    case 0:
         name = "Chris";
-    }
-    else {
+        break;
+    case 1:
         name = "Peter";
-        tagId++;
+        break;
+    case 2:
+        name = "Sue";
+        break;
+    case 3:
+        name = "Cindy";
+        break;
     }
+
+    // If name not found, use tagId
+
+    if (name.isEmpty()) name.setNum(tagId, 16);
 
 
     // Check to see if this tag is in previousTagId.  If it is, compute lap time.  If lap time is greater
     // than some min value, assume this is first lap after a rest so no lap time.
     // If not in list, assume first lap so add to list but no lap time.
 
-    double lapTime = 0.;
+    double lapSec = 0.;
     int index = previousTagId.indexOf(tagId);
     if (index >= 0) {
-        lapTime = tagInfo.timeStampSec - previousTime[index];
+        lapSec = tagInfo.timeStampSec - previousTime[index];
         previousTime[index] = tagInfo.timeStampSec;
     }
     else {
         previousTagId.append(tagId);
         previousTime.append(tagInfo.timeStampSec);
-        lapTime = 0.;
+        lapSec = 0.;
     }
-    double minLapTime = 15.;
-    if (lapTime > minLapTime) lapTime = 0.;
 
+    // If lap time is greater than 120 sec, rider must have taken a break so do not
+    // calculate lap time
+
+    double maxLapSec = 120.;
+    if (lapSec > maxLapSec) lapSec = 0.;
+
+    // Lap speed around black line
+
+    double lapSpeed = 0.;
+    if (lapSec > 0.) {
+        lapSpeed = blackLineDistancem / (lapSec / 3600.) / 1000.;
+    }
 
     // Add new entry to bottom of table
 
-    QTableWidgetItem *item = new QTableWidgetItem();
-    item->setData(Qt::EditRole, tagId);
-    t->setItem(r, 0, item);
+    QTableWidgetItem *item;
+    t->setItem(r, 0, new QTableWidgetItem());
+    t->item(r, 0)->setText(name);
     t->setItem(r, 1, new QTableWidgetItem());
-    t->item(r, 1)->setText(name);
-    t->setItem(r, 2, new QTableWidgetItem());
-    t->item(r, 2)->setText(time);
-    if (lapTime > 0.) {
+    t->item(r, 1)->setText(time);
+    if (lapSec > 0.) {
         item = new QTableWidgetItem();
-        item->setData(Qt::EditRole, lapTime);
+        item->setData(Qt::EditRole, lapSec);
+        t->setItem(r, 2, item);
+        item = new QTableWidgetItem();
+        item->setData(Qt::EditRole, lapSpeed);
         t->setItem(r, 3, item);
     }
 
     tableEntryCount++;
-
 }
 
 

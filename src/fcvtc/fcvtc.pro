@@ -4,19 +4,22 @@
 #
 #-------------------------------------------------
 
-QT       += core gui
+QT += core gui
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 TARGET = fcvtc
 TEMPLATE = app
-QMAKE_CXXFLAGS += -Wno-write-strings
+
+LTKLIBDIR = ../LTK/LTKCPP/Library
+
+INCLUDEPATH += $$LTKLIBDIR
 
 
 win32:!win32-g++ {
   contains(QT_ARCH, "x86_64") {
     message(Building for win 64bit)
-#    LIBS += -lws2_32 -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 -lrpcrt4
+#    LIBS += -lws2_32
   } else {
     message(Building for win 32bit)
   }
@@ -36,13 +39,12 @@ macx {
 
 linux-g++ {
   message(Building for linux-g++)
-  LTKLIBDIR = ../LTK/LTKCPP/Library
+  QMAKE_CXXFLAGS += -Wno-write-strings
 #  QMAKE_RPATHDIR = $$LIBDIR
-  INCLUDEPATH += $$LTKLIBDIR
   LIBS += $$LTKLIBDIR/libltkcpp.a
 }
 
-message(QMAKE_REL_RPATH_BASE: $$QMAKE_REL_RPATH_BASE)
+#message(QMAKE_REL_RPATH_BASE: $$QMAKE_REL_RPATH_BASE)
 
 message(INCLUDE: $$INCLUDEPATH)
 message(LIBS: $$LIBS)
@@ -61,6 +63,7 @@ SOURCES += main.cpp\
     creader.cpp
 
 HEADERS  += mainwindow.h \
-    creader.h
+    creader.h \
+    main.h
 
 FORMS    += mainwindow.ui

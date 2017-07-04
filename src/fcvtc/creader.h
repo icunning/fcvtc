@@ -7,7 +7,7 @@
 #include <QTimer>
 
 #include "main.h"
-//#include "ltkcpp.h"
+#include "ltkcpp.h"
 
 
 class CTagInfo {
@@ -19,6 +19,7 @@ public:
     double timeStampSec;
     QList<unsigned char> data;
     unsigned long long timeStampUSec;
+    double firstSeenInApplicationSec;
 };
 
 
@@ -26,11 +27,16 @@ public:
 class CReader : public QObject {
 Q_OBJECT
 public:
-    CReader(QString readerHostName, int readerId, int verbose=0);
+    CReader(void);
     ~CReader(void);
-    int processRecentChipsSeen(void);
+    int openConnection(QString readerHostName, int readerId, int verbose=0);
+    QList<int> *getTransmitPowerList(void);
+    int setTransmitPower(int index);
+    int setReaderConfiguration(void);
+    int processReports(void);
 private:
     int readerId;
+    unsigned messageId;
     int verbose;
     int checkConnectionStatus(void);
     int scrubConfiguration(void);
@@ -39,8 +45,6 @@ private:
     int addROSpec(void);
     int enableROSpec(void);
     int startROSpec(void);
-    int awaitReports(void);
-#ifndef NOHARDWARE
     LLRP::CConnection *pConnectionToReader;
     LLRP::CTypeRegistry *pTypeRegistry;
     LLRP::CMessage *recvMessage(int nMaxMS);
@@ -52,13 +56,15 @@ private:
     LLRP::CMessage *transact (LLRP::CMessage *pSendMsg);
     int sendMessage(LLRP::CMessage *pSendMsg);
     void processTagList(LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT);
-#endif
-    QTimer testTimer;
+    int getTransmitPowerCapabilities(void);
+    QList<int> transmitPowerList;
+    QTimer simulateReaderTimer;
+    bool simulateReaderMode;
 signals:
     void newTag(CTagInfo);
     void newLogMessage(QString);
 private slots:
-    void onTestTimerTimeout(void);
+    void onSimulateReaderTimerTimeout(void);
 };
 
 #endif // CREADER_H

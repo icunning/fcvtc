@@ -1,12 +1,13 @@
 // creader.cpp
 
-
+#include <QApplication>
 #include <QList>
 #include <QDateTime>
 #include <QTimer>
 
+#include <unistd.h>
+
 #include "creader.h"
-//#include "ltkcpp.h"
 
 
 // ********************************************************************************************************
@@ -27,14 +28,34 @@ void CTagInfo::clear(void) {
 
 // *********************************************************************************************************
 
-CReader::CReader(QString readerHostName, int readerId, int verbose) {
-    this->readerId = readerId;
-    this->verbose = verbose;
-    int rc;
-    QString s;
-#ifndef NOHARDWARE
+CReader::CReader(void) {
+    readerId = 0;
+    messageId = 0;
+    verbose = 0;
+    simulateReaderMode = false;
     pConnectionToReader = NULL;
     pTypeRegistry = NULL;
+}
+
+
+
+int CReader::openConnection(QString readerHostName, int readerId, int verbose) {
+    int rc;
+    QString s;
+
+    this->readerId = readerId;
+    this->verbose = verbose;
+
+    // If reader hostname not provided, simulate reader operation by emitting signal at random intervals
+
+    if (readerHostName.isEmpty()) {
+        simulateReaderMode = true;
+        simulateReaderTimer.setSingleShot(true);
+        connect(&simulateReaderTimer, SIGNAL(timeout(void)), this, SLOT(onSimulateReaderTimerTimeout(void)));
+        simulateReaderTimer.start(1000);
+        return 0;
+    }
+    simulateReaderMode = false;
 
     /*
      * Allocate the type registry. This is needed
@@ -44,7 +65,7 @@ CReader::CReader(QString readerHostName, int readerId, int verbose) {
     pTypeRegistry = LLRP::getTheTypeRegistry();
     if (!pTypeRegistry) {
         emit newLogMessage(s.sprintf("ERROR: getTheTypeRegistry failed"));
-        return;
+        return 1;
     }
 
     /*
@@ -59,7 +80,7 @@ CReader::CReader(QString readerHostName, int readerId, int verbose) {
         delete pTypeRegistry;
         pTypeRegistry = NULL;
         emit newLogMessage(s.sprintf("ERROR: new CConnection failed"));
-        return;
+        return 2;
     }
 
     /*
@@ -77,24 +98,7 @@ CReader::CReader(QString readerHostName, int readerId, int verbose) {
         pTypeRegistry = NULL;
         delete pConnectionToReader;
         pConnectionToReader = NULL;
-        return;
-    }
-#else
-    // Create timer to emit signal and random intervals
-
-    testTimer.setSingleShot(true);
-    connect(&testTimer, SIGNAL(timeout(void)), this, SLOT(onTestTimerTimeout(void)));
-    testTimer.start(1000);
-
-#endif
-
-    /*
-     * Record the pointer to the connection object so other
-     * routines can use it.
-     */
-
-    if (verbose) {
-        emit newLogMessage(s.sprintf("INFO: Connected, checking status...."));
+        return 3;
     }
 
     /*
@@ -103,37 +107,61 @@ CReader::CReader(QString readerHostName, int readerId, int verbose) {
      * Each routine prints messages.
      */
 
+    if (verbose) {
+        emit newLogMessage(s.sprintf("INFO: Connected, checking status...."));
+    }
+
     rc = checkConnectionStatus();
     if (rc != 0) {
         emit newLogMessage(s.sprintf("checkConnectionStatus(): error %d - Cannot connect to tag reader.  This may mean another instance of this program is already running.", rc));
-        return;
+        return 4;
     }
 
     if (scrubConfiguration() != 0) {
         emit newLogMessage(s.sprintf("scrubConfiguration failed"));
-        return;
+        return 5;
+    }
+
+    // Get transmit power values for reader.  Gui will use these to populate comboBox.
+
+    rc = getTransmitPowerCapabilities();
+    if (rc) {
+        emit newLogMessage(s.sprintf("getTransmitPowerCapabilities() failed, rc=%d", rc));
+        return 6;
+    }
+
+    rc = setReaderConfiguration();
+    if (rc) {
+        emit newLogMessage(s.sprintf("setReaderConfiguration() failed, rc=%d", rc));
+        return 7;
     }
 
     if (addROSpec() != 0) {
         emit newLogMessage(s.sprintf("addROSpec() failed"));
-        return;
+        return 8;
     }
 
     if(enableROSpec() != 0) {
         emit newLogMessage(s.sprintf("enableROSpec() failed"));
-        return;
+        return 9;
     }
+
+    if (startROSpec() != 0) {
+        return 10;
+    }
+
+    return 0;
 }
 
 
-void CReader::onTestTimerTimeout(void) {
+void CReader::onSimulateReaderTimerTimeout(void) {
     static int count = 0;
     static unsigned long long initialTimeStamp = 0;
     CTagInfo tag;
     tag.antennaId = 1;
     tag.readerId = 1;
     tag.timeStampUSec = QDateTime::currentMSecsSinceEpoch() * 1000;
-    int tagId = rand() % 10;
+    int tagId = rand() % 10;    // random number between 0 and 9
     if (count == 0) initialTimeStamp = tag.timeStampUSec;
     tag.timeStampSec = (double)(tag.timeStampUSec - initialTimeStamp) / 1e6;
     tag.data.reserve(6);
@@ -146,19 +174,10 @@ void CReader::onTestTimerTimeout(void) {
     tag.data[5] = tagId;
     if (count++ < 2000) {
         emit newTag(tag);
-        int newInterval = (rand() % 50) * 100;
-        testTimer.setInterval(newInterval);
-        testTimer.start();
+        int nextInterval = (rand() % 50) * 100;     // next interval between tags read 0 to 5000 msec
+        simulateReaderTimer.setInterval(nextInterval);
+        simulateReaderTimer.start();
     }
-}
-
-
-int CReader::processRecentChipsSeen(void) {
-    if (startROSpec() != 0) {
-        return 0;
-    }
-    awaitReports();
-    return 0;
 }
 
 
@@ -175,7 +194,6 @@ CReader::~CReader(void) {
         emit newLogMessage(s.sprintf("INFO: Clean up reader configuration..."));
     }
 
-#ifndef NOHARDWARE
     scrubConfiguration();
 
     /*
@@ -196,7 +214,6 @@ CReader::~CReader(void) {
         delete pTypeRegistry;
         pTypeRegistry = NULL;
     }
-#endif
 
     if (verbose) {
         emit newLogMessage(s.sprintf("INFO: Finished"));
@@ -238,11 +255,14 @@ CReader::~CReader(void) {
 
 int CReader::checkConnectionStatus(void) {
     QString s;
-#ifndef NOHARDWARE
     LLRP::CMessage *pMessage;
     LLRP::CREADER_EVENT_NOTIFICATION *pNtf;
     LLRP::CReaderEventNotificationData *pNtfData;
     LLRP::CConnectionAttemptEvent *pEvent;
+
+    if (simulateReaderMode) {
+        return 0;
+    }
 
     /*
      * Expect the notification within 10 seconds.
@@ -304,7 +324,6 @@ int CReader::checkConnectionStatus(void) {
      */
 
     if (pMessage) delete pMessage;
-#endif
 
     if (verbose) {
         emit newLogMessage(s.sprintf("INFO: Connection status OK"));
@@ -316,7 +335,6 @@ int CReader::checkConnectionStatus(void) {
 
     return 0;
 
-#ifndef NOHARDWARE
   fail:
 
     /*
@@ -326,7 +344,6 @@ int CReader::checkConnectionStatus(void) {
     emit newLogMessage(s.sprintf("ERROR: checkConnectionStatus failed"));
 
     if (pMessage) delete pMessage;
-#endif
 
     return -1;
 }
@@ -349,6 +366,8 @@ int CReader::checkConnectionStatus(void) {
  *****************************************************************************/
 
 int CReader::scrubConfiguration(void) {
+    if (simulateReaderMode) return 0;
+
     if ( 0 != resetConfigurationToFactoryDefaults()) {
         return -1;
     }
@@ -382,18 +401,19 @@ int CReader::scrubConfiguration(void) {
  *****************************************************************************/
 
 int CReader::resetConfigurationToFactoryDefaults(void) {
-    QString s;
-#ifndef NOHARDWARE
     LLRP::CSET_READER_CONFIG *pCmd;
     LLRP::CMessage *pRspMsg;
     LLRP::CSET_READER_CONFIG_RESPONSE *pRsp;
+    QString s;
+
+    if (simulateReaderMode) return 0;
 
     /*
      * Compose the command message
      */
 
     pCmd = new LLRP::CSET_READER_CONFIG();
-    pCmd->setMessageID(101);
+    pCmd->setMessageID(messageId++);
     pCmd->setResetToFactoryDefault(1);
 
     /*
@@ -446,7 +466,6 @@ int CReader::resetConfigurationToFactoryDefaults(void) {
     if (verbose) {
         emit newLogMessage(s.sprintf("INFO: Configuration reset to factory defaults"));
     }
-#endif
 
     /*
      * Victory.
@@ -476,12 +495,13 @@ int CReader::resetConfigurationToFactoryDefaults(void) {
  **
  *****************************************************************************/
 
-int CReader::deleteAllROSpecs (void) {
-#ifndef NOHARDWARE
+int CReader::deleteAllROSpecs(void) {
     LLRP::CDELETE_ROSPEC *            pCmd;
     LLRP::CMessage *                  pRspMsg;
     LLRP::CDELETE_ROSPEC_RESPONSE *   pRsp;
     QString s;
+
+    if (simulateReaderMode) return 0;
 
     /*
      * Compose the command message
@@ -541,7 +561,6 @@ int CReader::deleteAllROSpecs (void) {
     if (verbose) {
         emit newLogMessage(s.sprintf("INFO: All ROSpecs are deleted"));
     }
-#endif
 
     /*
      * Victory.
@@ -624,24 +643,28 @@ int CReader::deleteAllROSpecs (void) {
  *****************************************************************************/
 
 int CReader::addROSpec(void) {
-#ifndef NOHARDWARE
     QString s;
 
+    if (simulateReaderMode) return 0;
+
     LLRP::CROSpecStartTrigger *pROSpecStartTrigger = new LLRP::CROSpecStartTrigger();
-    pROSpecStartTrigger->setROSpecStartTriggerType(
-                                LLRP::ROSpecStartTriggerType_Null);
+    pROSpecStartTrigger->setROSpecStartTriggerType(LLRP::ROSpecStartTriggerType_Null);
+//    pROSpecStartTrigger->setROSpecStartTriggerType(LLRP::ROSpecStartTriggerType_Immediate);
 
     LLRP::CROSpecStopTrigger *pROSpecStopTrigger = new LLRP::CROSpecStopTrigger();
     pROSpecStopTrigger->setROSpecStopTriggerType(LLRP::ROSpecStopTriggerType_Null);
+//    pROSpecStopTrigger->setROSpecStopTriggerType(LLRP::ROSpecStopTriggerType_Duration);
     pROSpecStopTrigger->setDurationTriggerValue(0);     /* n/a */
 
     LLRP::CROBoundarySpec *pROBoundarySpec = new LLRP::CROBoundarySpec();
     pROBoundarySpec->setROSpecStartTrigger(pROSpecStartTrigger);
     pROBoundarySpec->setROSpecStopTrigger(pROSpecStopTrigger);
 
+
     LLRP::CAISpecStopTrigger *pAISpecStopTrigger = new LLRP::CAISpecStopTrigger();
-    pAISpecStopTrigger->setAISpecStopTriggerType(LLRP::AISpecStopTriggerType_Duration);
-    pAISpecStopTrigger->setDurationTrigger(500);
+//    pAISpecStopTrigger->setAISpecStopTriggerType(LLRP::AISpecStopTriggerType_Duration);
+    pAISpecStopTrigger->setAISpecStopTriggerType(LLRP::AISpecStopTriggerType_Null);
+    pAISpecStopTrigger->setDurationTrigger(0);//1000
 
     LLRP::CInventoryParameterSpec *pInventoryParameterSpec = new LLRP::CInventoryParameterSpec();
     pInventoryParameterSpec->setInventoryParameterSpecID(1234);
@@ -655,7 +678,7 @@ int CReader::addROSpec(void) {
     pAISpec->setAISpecStopTrigger(pAISpecStopTrigger);
     pAISpec->addInventoryParameterSpec(pInventoryParameterSpec);
 
-    LLRP::CTagReportContentSelector * pTagReportContentSelector = new LLRP::CTagReportContentSelector();
+    LLRP::CTagReportContentSelector *pTagReportContentSelector = new LLRP::CTagReportContentSelector();
     pTagReportContentSelector->setEnableROSpecID(FALSE);
     pTagReportContentSelector->setEnableSpecIndex(FALSE);
     pTagReportContentSelector->setEnableInventoryParameterSpecID(FALSE);
@@ -663,13 +686,14 @@ int CReader::addROSpec(void) {
     pTagReportContentSelector->setEnableChannelIndex(FALSE);
     pTagReportContentSelector->setEnablePeakRSSI(FALSE);
     pTagReportContentSelector->setEnableFirstSeenTimestamp(TRUE);
-    pTagReportContentSelector->setEnableLastSeenTimestamp(FALSE);
+    pTagReportContentSelector->setEnableLastSeenTimestamp(TRUE);
     pTagReportContentSelector->setEnableTagSeenCount(FALSE);
     pTagReportContentSelector->setEnableAccessSpecID(FALSE);
 
     LLRP::CROReportSpec *pROReportSpec = new LLRP::CROReportSpec();
+    //pROReportSpec->setROReportTrigger(LLRP::ROReportTriggerType_None);
     pROReportSpec->setROReportTrigger(LLRP::ROReportTriggerType_Upon_N_Tags_Or_End_Of_ROSpec);
-    pROReportSpec->setN(0);         /* Unlimited */
+    pROReportSpec->setN(1);         /* Unlimited */
     pROReportSpec->setTagReportContentSelector(pTagReportContentSelector);
 
     LLRP::CROSpec *pROSpec = new LLRP::CROSpec();
@@ -747,7 +771,6 @@ int CReader::addROSpec(void) {
     if (verbose) {
         emit newLogMessage(s.sprintf("INFO: ROSpec added"));
     }
-#endif
 
     /*
      * Victory.
@@ -775,11 +798,12 @@ int CReader::addROSpec(void) {
  *****************************************************************************/
 
 int CReader::enableROSpec (void) {
-#ifndef NOHARDWARE
     LLRP::CENABLE_ROSPEC *            pCmd;
     LLRP::CMessage *                  pRspMsg;
     LLRP::CENABLE_ROSPEC_RESPONSE *   pRsp;
     QString s;
+
+    if (simulateReaderMode) return 0;
 
     /*
      * Compose the command message
@@ -839,7 +863,6 @@ int CReader::enableROSpec (void) {
     if (verbose) {
         emit newLogMessage(s.sprintf("INFO: ROSpec enabled"));
     }
-#endif
 
     /*
      * Victory.
@@ -867,11 +890,12 @@ int CReader::enableROSpec (void) {
  *****************************************************************************/
 
 int CReader::startROSpec (void) {
-#ifndef NOHARDWARE
     LLRP::CSTART_ROSPEC *pCmd;
     LLRP::CMessage *pRspMsg;
     LLRP::CSTART_ROSPEC_RESPONSE *pRsp;
     QString s;
+
+    if (simulateReaderMode) return 0;
 
     /*
      * Compose the command message
@@ -931,7 +955,6 @@ int CReader::startROSpec (void) {
     if (verbose) {
         emit newLogMessage(s.sprintf("INFO: ROSpec started"));
     }
-#endif
 
     /*
      * Victory.
@@ -958,100 +981,65 @@ int CReader::startROSpec (void) {
  **
  *****************************************************************************/
 
-int CReader::awaitReports(void) {
-    int retVal = 0;
-#ifndef NOHARDWARE
-    int bDone = 0;
+int CReader::processReports(void) {
     QString s;
 
-    /*
-     * Keep receiving messages until done or until
-     * something bad happens.
-     */
+    if (simulateReaderMode) return 0;
 
-    while(!bDone) {
-        LLRP::CMessage *              pMessage;
-        const LLRP::CTypeDescriptor * pType;
+    LLRP::CMessage *pMessage = NULL;
+    const LLRP::CTypeDescriptor *pType = NULL;
 
-        /*
-         * Wait up to 7 seconds for a message. The report
-         * should occur within 5 seconds.
-         */
+    // Wait up to 7 seconds for a message. The report
+    // should occur within 5 seconds. If no message, just return.
 
-        pMessage = recvMessage(7000);
-        if (NULL == pMessage) {
-            /*
-             * Did not receive a message within a reasonable
-             * amount of time. recvMessage() already tattled
-             */
-            retVal = -2;
-            bDone = 1;
-            continue;
-        }
+    printf("a0\n");
+    fflush(stdout);
 
-        /*
-         * What happens depends on what kind of message
-         * received. Use the type label (m_pType) to
-         * discriminate message types.
-         */
-
-        pType = pMessage->m_pType;
-
-        /*
-         * Is it a tag report? If so, process.
-         */
-
-        if (&LLRP::CRO_ACCESS_REPORT::s_typeDescriptor == pType) {
-            LLRP::CRO_ACCESS_REPORT *pNtf;
-            pNtf = (LLRP::CRO_ACCESS_REPORT *)pMessage;
-
-            processTagList(pNtf);
-            bDone = 1;
-            retVal = 0;
-        }
-
-        /*
-         * Is it a reader event? This example only recognizes
-         * AntennaEvents.
-         */
-
-        else if (&LLRP::CREADER_EVENT_NOTIFICATION::s_typeDescriptor == pType) {
-            LLRP::CREADER_EVENT_NOTIFICATION *pNtf;
-            LLRP::CReaderEventNotificationData *pNtfData;
-
-            pNtf = (LLRP::CREADER_EVENT_NOTIFICATION *) pMessage;
-
-            pNtfData = pNtf->getReaderEventNotificationData();
-            if (NULL != pNtfData) {
-                handleReaderEventNotification(pNtfData);
-            }
-            else {
-                /*
-                 * This should never happen. Using continue
-                 * to keep indent depth down.
-                 */
-
-                emit newLogMessage(s.sprintf("WARNING: READER_EVENT_NOTIFICATION without data"));
-            }
-        }
-
-        /*
-         * Hmmm. Something unexpected. Just tattle and keep going.
-         */
-
-        else {
-            emit newLogMessage(s.sprintf("WARNING: Ignored unexpected message during monitor: %s", pType->m_pName));
-        }
-
-        /*
-         * Done with the received message
-         */
-
-        delete pMessage;
+    pMessage = recvMessage(500);
+    if (!pMessage) {
+        return 0;
     }
-#endif
 
-    return retVal;
+    // What happens depends on what kind of message
+    // received. Use the type label (m_pType) to
+    // discriminate message types.
+
+    pType = pMessage->m_pType;
+
+    // Is it a tag report? If so, process.
+
+    if (&LLRP::CRO_ACCESS_REPORT::s_typeDescriptor == pType) {
+        LLRP::CRO_ACCESS_REPORT *pNtf;
+        pNtf = (LLRP::CRO_ACCESS_REPORT *)pMessage;
+        processTagList(pNtf);
+    }
+
+    // Is it a reader event? This example only recognizes
+    // AntennaEvents.
+
+    else if (&LLRP::CREADER_EVENT_NOTIFICATION::s_typeDescriptor == pType) {
+        LLRP::CREADER_EVENT_NOTIFICATION *pNtf;
+        LLRP::CReaderEventNotificationData *pNtfData;
+
+        pNtf = (LLRP::CREADER_EVENT_NOTIFICATION *)pMessage;
+
+        pNtfData = pNtf->getReaderEventNotificationData();
+        if (NULL != pNtfData) {
+            handleReaderEventNotification(pNtfData);
+        }
+        else {
+            emit newLogMessage(s.sprintf("WARNING: READER_EVENT_NOTIFICATION without data"));
+        }
+    }
+
+    // Hmmm. Something unexpected. Just tattle and keep going.
+
+    else {
+        emit newLogMessage(s.sprintf("WARNING: Ignored unexpected message during monitor: %s", pType->m_pName));
+    }
+
+    delete pMessage;
+    return 0;
 }
 
 
@@ -1073,11 +1061,9 @@ int CReader::awaitReports(void) {
  **
  *****************************************************************************/
 
-#ifndef NOHARDWARE
 void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
     std::list<LLRP::CTagReportData *>::iterator Cur;
-    static QList<CTagInfo> previousTagsList;
-    QList<CTagInfo> currentTagsList;
+    static QList<CTagInfo> currentTagsList;
 
     for (Cur = pRO_ACCESS_REPORT->beginTagReportData(); Cur != pRO_ACCESS_REPORT->endTagReportData(); Cur++) {
         LLRP::CTagReportData *pTagReportData = *Cur;
@@ -1127,19 +1113,36 @@ void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
                 for (int i=0; i<n; i++) {
                     tagInfo.data.append(pValue[i]);
                 }
+                unsigned long long firstSeen = pTagReportData->getFirstSeenTimestampUTC()->getMicroseconds();
+                //unsigned long long lastSeen = pTagReportData->getLastSeenTimestampUTC()->getMicroseconds();
 
-                currentTagsList.append(tagInfo);
+                // Get current time in application sec
 
-                // Emit signal only if tag is not in previousTagsList
+                double currentApplicationSec = (double)QDateTime::currentMSecsSinceEpoch() / 1000.;
+                tagInfo.firstSeenInApplicationSec = currentApplicationSec;
 
-                bool found = false;
-                for (int i=0; i<previousTagsList.size(); i++) {
-                    if (tagInfo.data == previousTagsList[i].data) {
-                        found = true;
-                        break;
+                // Remove any tags from list more than 5 sec old
+
+                for (int i=currentTagsList.size()-1; i>=0; i--) {
+                    double timeInList = currentApplicationSec - currentTagsList[i].firstSeenInApplicationSec;
+                    printf("%d: %llu %.3f\n", i, firstSeen, timeInList);
+                    fflush(stdout);
+                    if (timeInList > 5.) currentTagsList.removeAt(i);
+                }
+
+                // If tag is not already in currentTagsList, add to list and emit signal
+
+                bool inList = false;
+                for (int i=0; i<currentTagsList.size(); i++) {
+                    if (tagInfo.data == currentTagsList[i].data) {
+                        inList = true;
                     }
                 }
-                if (!found) emit newTag(tagInfo);
+                if (!inList) {
+                    currentTagsList.append(tagInfo);
+                    emit newTag(tagInfo);
+                }
+
             }
             else {
                 emit newLogMessage(QString("Unknown-epc-data-type in tag"));
@@ -1148,11 +1151,10 @@ void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
         else {
             emit newLogMessage(QString("Missing-epc-data in tag"));
         }
-
+    qApp->processEvents();
     }
-    previousTagsList = currentTagsList;
 }
-#endif
+
 
 
 
@@ -1172,7 +1174,6 @@ void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
  **
  *****************************************************************************/
 
-#ifndef NOHARDWARE
 void CReader::handleReaderEventNotification (LLRP::CReaderEventNotificationData *pNtfData) {
     LLRP::CAntennaEvent *pAntennaEvent;
     LLRP::CReaderExceptionEvent *pReaderExceptionEvent;
@@ -1209,7 +1210,6 @@ void CReader::handleReaderEventNotification (LLRP::CReaderEventNotificationData 
         emit newLogMessage(s.sprintf("NOTICE: Unexpected (unhandled) ReaderEvent"));
     }
 }
-#endif
 
 
 
@@ -1224,7 +1224,6 @@ void CReader::handleReaderEventNotification (LLRP::CReaderEventNotificationData 
  **
  *****************************************************************************/
 
-#ifndef NOHARDWARE
 void CReader::handleAntennaEvent (LLRP::CAntennaEvent *pAntennaEvent) {
     LLRP::EAntennaEventType eEventType;
     LLRP::llrp_u16_t AntennaID;
@@ -1251,7 +1250,6 @@ void CReader::handleAntennaEvent (LLRP::CAntennaEvent *pAntennaEvent) {
 
     if (verbose) emit newLogMessage(s.sprintf("NOTICE: Reader %d antenna %d is %s", readerId, AntennaID, pStateStr));
 }
-#endif
 
 
 
@@ -1267,7 +1265,6 @@ void CReader::handleAntennaEvent (LLRP::CAntennaEvent *pAntennaEvent) {
  **
  *****************************************************************************/
 
-#ifndef NOHARDWARE
 void CReader::handleReaderExceptionEvent (LLRP::CReaderExceptionEvent *pReaderExceptionEvent) {
     LLRP::llrp_utf8v_t                Message;
     QString s;
@@ -1281,7 +1278,6 @@ void CReader::handleReaderExceptionEvent (LLRP::CReaderExceptionEvent *pReaderEx
         emit newLogMessage(s.sprintf("NOTICE: ReaderException but no message"));
     }
 }
-#endif
 
 
 
@@ -1303,7 +1299,6 @@ void CReader::handleReaderExceptionEvent (LLRP::CReaderExceptionEvent *pReaderEx
  **
  *****************************************************************************/
 
-#ifndef NOHARDWARE
 int CReader::checkLLRPStatus (LLRP::CLLRPStatus *pLLRPStatus, char *pWhatStr) {
     QString s;
 
@@ -1347,7 +1342,6 @@ int CReader::checkLLRPStatus (LLRP::CLLRPStatus *pLLRPStatus, char *pWhatStr) {
 
     return 0;
 }
-#endif
 
 
 
@@ -1374,8 +1368,7 @@ int CReader::checkLLRPStatus (LLRP::CLLRPStatus *pLLRPStatus, char *pWhatStr) {
  **
  *****************************************************************************/
 
-#ifndef NOHARDWARE
-LLRP::CMessage * CReader::transact(LLRP::CMessage *pSendMsg) {
+LLRP::CMessage *CReader::transact(LLRP::CMessage *pSendMsg) {
     LLRP::CMessage *pRspMsg;
     QString s;
 
@@ -1396,7 +1389,7 @@ LLRP::CMessage * CReader::transact(LLRP::CMessage *pSendMsg) {
      * an error. In that case we try to print the error details.
      */
 
-    pRspMsg = pConnectionToReader->transact(pSendMsg, 5000);
+    pRspMsg = pConnectionToReader->transact(pSendMsg, 3000);
 
     if (NULL == pRspMsg) {
         const LLRP::CErrorDetails *   pError = pConnectionToReader->getTransactError();
@@ -1443,7 +1436,6 @@ LLRP::CMessage * CReader::transact(LLRP::CMessage *pSendMsg) {
 
     return pRspMsg;
 }
-#endif
 
 
 
@@ -1471,8 +1463,7 @@ LLRP::CMessage * CReader::transact(LLRP::CMessage *pSendMsg) {
  **
  *****************************************************************************/
 
-#ifndef NOHARDWARE
-LLRP::CMessage *CReader::recvMessage (int nMaxMS) {
+LLRP::CMessage *CReader::recvMessage(int nMaxMS) {
     LLRP::CMessage *pMessage;
     QString s;
 
@@ -1490,7 +1481,7 @@ LLRP::CMessage *CReader::recvMessage (int nMaxMS) {
     if (NULL == pMessage) {
         const LLRP::CErrorDetails *   pError = pConnectionToReader->getRecvError();
 
-        emit newLogMessage(s.sprintf("ERROR: recvMessage failed, %s", pError->m_pWhatStr ? pError->m_pWhatStr : "no reason given"));
+        //emit newLogMessage(s.sprintf("ERROR: recvMessage failed, %s", pError->m_pWhatStr ? pError->m_pWhatStr : "no reason given"));
 
         if (NULL != pError->m_pRefType) {
             emit newLogMessage(s.sprintf("ERROR: ... reference type %s", pError->m_pRefType->m_pName));
@@ -1516,7 +1507,6 @@ LLRP::CMessage *CReader::recvMessage (int nMaxMS) {
 
     return pMessage;
 }
-#endif
 
 
 
@@ -1537,7 +1527,6 @@ LLRP::CMessage *CReader::recvMessage (int nMaxMS) {
  **
  *****************************************************************************/
 
-#ifndef NOHARDWARE
 int CReader::sendMessage (LLRP::CMessage *pSendMsg) {
     QString s;
 
@@ -1580,7 +1569,6 @@ int CReader::sendMessage (LLRP::CMessage *pSendMsg) {
 
     return 0;
 }
-#endif
 
 
 
@@ -1597,7 +1585,6 @@ int CReader::sendMessage (LLRP::CMessage *pSendMsg) {
  **
  *****************************************************************************/
 
-#ifndef NOHARDWARE
 void CReader::printXMLMessage (LLRP::CMessage *pMessage) {
     char aBuf[100*1024];
     QString s;
@@ -1617,4 +1604,297 @@ void CReader::printXMLMessage (LLRP::CMessage *pMessage) {
 
     emit newLogMessage(s.sprintf("%s", aBuf));
 }
-#endif
+
+
+
+
+
+// getTransmitPowerCapabilities()
+// Populate transmitPowerList member
+//
+int CReader::getTransmitPowerCapabilities(void) {
+    LLRP::CGET_READER_CAPABILITIES *pCmd;
+    LLRP::CMessage *pRspMsg;
+    LLRP::CGET_READER_CAPABILITIES_RESPONSE *pRsp;
+    LLRP::CRegulatoryCapabilities *pReg;
+    LLRP::CUHFBandCapabilities *pUhf;
+    LLRP::CTransmitPowerLevelTableEntry *pPwrLvl;
+    LLRP::CGeneralDeviceCapabilities *pDeviceCap;
+    std::list<LLRP::CTransmitPowerLevelTableEntry *>::iterator PwrLvl;
+
+    transmitPowerList.clear();
+
+    /*
+    * Compose the command message
+    */
+    pCmd = new LLRP::CGET_READER_CAPABILITIES();
+    pCmd->setMessageID(messageId++);//m_messageID++);
+    pCmd->setRequestedData(LLRP::GetReaderCapabilitiesRequestedData_All);
+    /*
+    * Send the message, expect a certain type of response
+    */
+    pRspMsg = transact(pCmd);
+    /*
+    * Done with the command message
+    */
+    delete pCmd;
+    /*
+    * transact() returns NULL if something went wrong.
+    */
+    if(NULL == pRspMsg) {
+        /* transact already tattled */
+        return 1;
+    }
+    /*
+    * Cast to a CGET_READER_CAPABILITIES_RESPONSE message.
+    */
+    pRsp = (LLRP::CGET_READER_CAPABILITIES_RESPONSE *)pRspMsg;
+    /*
+    * Check the LLRPStatus parameter.
+    */
+    if(0 != checkLLRPStatus(pRsp->getLLRPStatus(),"getReaderCapabilities")) {
+        /* checkLLRPStatus already tattled */
+        delete pRspMsg;
+        return 2;
+    }
+    /*
+    ** Get out the Regulatory Capabilities element
+    */
+    if(NULL == (pReg = pRsp->getRegulatoryCapabilities())) {
+        delete pRspMsg;
+        return 3;
+    }
+    /*
+    ** Get out the UHF Band Capabilities element
+    */
+    if(NULL == (pUhf = pReg->getUHFBandCapabilities())) {
+        delete pRspMsg;
+        return 4;
+    }
+
+    // Populate member QList<int> transmitPowerList with available power values
+
+    for (PwrLvl = pUhf->beginTransmitPowerLevelTableEntry(); PwrLvl != pUhf->endTransmitPowerLevelTableEntry(); PwrLvl++) {
+        pPwrLvl = *PwrLvl;
+        transmitPowerList.append(pPwrLvl->getTransmitPowerValue());
+    }
+
+    /* get the last power level in the table */
+    PwrLvl = pUhf->endTransmitPowerLevelTableEntry();
+    PwrLvl--;
+    // store the index for use int the ROSpec.
+    pPwrLvl = *PwrLvl;
+
+//    int powerLevelIndex = pPwrLvl->getIndex();
+    if(1 < verbose) {
+        printf("INFO: Reader Max Power index %u, power %d\n", pPwrLvl->getIndex(), pPwrLvl->getTransmitPowerValue());
+    }
+    /* if this parameter is missing, or if this is not an Impinj
+    ** reader, we can’t determine its capabilities so we exit
+    ** Impinj Private Enterprise NUmber is 25882 */
+    if( (NULL == (pDeviceCap = pRsp->getGeneralDeviceCapabilities())) || (25882 != pDeviceCap->getDeviceManufacturerName())) {
+        delete pRspMsg;
+        return 5;
+    }
+    int modelNumber = pDeviceCap->getModelName();
+    if(1 < verbose) {
+        printf("INFO: Reader Model Name %u\n", modelNumber);
+    }
+    /*
+    * Done with the response message.
+    */
+    delete pRspMsg;
+    /*
+    * Tattle progress, maybe
+    */
+    if(verbose) {
+        printf("INFO:Found LLRP Capabilities\n");
+    }
+    /*
+    * Victory.
+    */
+    return 0;
+}
+
+
+
+
+
+// Use xml file to set default reader configuration and then make some mods
+//
+int CReader::setReaderConfiguration(void) {
+    LLRP::CGET_READER_CONFIG *pGetReaderCmd;
+    LLRP::CMessage *pRspMsg;
+    LLRP::CGET_READER_CONFIG_RESPONSE *pGetReaderRsp;
+    std::list<LLRP::CAntennaConfiguration*>::iterator pAntCfg;
+
+    // Compose the command message
+
+    pGetReaderCmd = new LLRP::CGET_READER_CONFIG();
+    pGetReaderCmd->setMessageID(messageId++);
+    pGetReaderCmd->setRequestedData(LLRP::GetReaderConfigRequestedData_All);
+
+    // Send the message, expect a certain type of response
+
+    pRspMsg = transact(pGetReaderCmd);
+
+    // Done with the command message
+
+    delete pGetReaderCmd;
+    pGetReaderCmd = NULL;
+
+    // transact() returns NULL if something went wrong.
+
+    if(NULL == pRspMsg) {
+        // transact already tattled
+        return -1;
+    }
+
+    // Cast to a CGET_READER_CONFIG_RESPONSE message.
+
+    pGetReaderRsp = (LLRP::CGET_READER_CONFIG_RESPONSE *) pRspMsg;
+
+    // Check the LLRPStatus parameter.
+
+    if (0 != checkLLRPStatus(pGetReaderRsp->getLLRPStatus(), "getReaderConfig")) {
+        // checkLLRPStatus already tattled
+        delete pRspMsg;
+        return -1;
+    }
+
+    // just get the hop table and channel index out of
+    // the first antenna configuration since they must all
+    // be the same
+
+    pAntCfg = pGetReaderRsp->beginAntennaConfiguration();
+    unsigned hopTableID = 0;
+    unsigned channelIndex = 0;
+    if(pAntCfg != pGetReaderRsp->endAntennaConfiguration()) {
+        LLRP::CRFTransmitter *prfTx;
+        prfTx = (*pAntCfg)->getRFTransmitter();
+        hopTableID = prfTx->getHopTableID();
+        channelIndex = prfTx->getChannelIndex();
+    }
+    else
+    {
+        delete pRspMsg;
+        return -1;
+    }
+
+    // Done with the response message.
+
+    delete pRspMsg;
+
+    if(1 < verbose)
+    {
+                printf("INFO: Reader hopTableID %u, ChannelIndex %u\n", hopTableID, channelIndex);
+    }
+
+
+
+
+    LLRP::CMessage *pCmdMsg;
+    LLRP::CSET_READER_CONFIG *pSetReaderCmd;
+//    LLRP::CMessage *pRspMsg;
+    LLRP::CSET_READER_CONFIG_RESPONSE *pSetReaderRsp;
+    LLRP::CXMLTextDecoder *pDecoder;
+    std::list<LLRP::CAntennaConfiguration *>::iterator Cur;
+
+    // Build a decoder to extract the message from XML
+
+    pDecoder = new LLRP::CXMLTextDecoder(pTypeRegistry, "../fcvtc/setReaderConfig.xml");
+    if (NULL == pDecoder) {
+        return -1;
+    }
+    pCmdMsg = pDecoder->decodeMessage();
+    delete pDecoder;
+    if (NULL == pCmdMsg) {
+        return -2;
+    }
+
+    if (&LLRP::CSET_READER_CONFIG::s_typeDescriptor != pCmdMsg->m_pType) {
+        return -3;
+    }
+
+    // get the message as a SET_READER_CONFIG
+
+    pSetReaderCmd = (LLRP::CSET_READER_CONFIG *) pCmdMsg;
+
+    // It’s always a good idea to give it a unique message ID
+
+    pSetReaderCmd->setMessageID(messageId++);
+
+    // at this point,we would be ready to send the message, but we need
+    // to make a change to the transmit power for each enabled antenna.
+
+    Cur = pSetReaderCmd->beginAntennaConfiguration();
+    Cur++;
+
+    LLRP::CRFTransmitter *pRfTx = (*Cur)->getRFTransmitter();
+
+    // we already have this element in our sample XML file, but
+    // we check here to create one if it doesn’t exist to show
+    // a more general usage
+
+    if(NULL == pRfTx) {
+        pRfTx = new LLRP::CRFTransmitter();
+        (*Cur)->setRFTransmitter(pRfTx);
+    }
+
+    // Set the max power that we retreived from the capabilities
+    // and the hopTableID and Channel index we got from the config
+
+    unsigned powerLevelIndex = 1;         // 1 = lowest power value
+    pRfTx->setChannelIndex(channelIndex);
+    pRfTx->setHopTableID(hopTableID);
+    pRfTx->setTransmitPower(powerLevelIndex);
+
+    // Send the message, expect a certain
+
+    pRspMsg = transact(pSetReaderCmd);
+
+    delete pSetReaderCmd;
+    pSetReaderCmd = NULL;
+
+    // transact() returns NULL if something went wrong.
+
+    if (NULL == pRspMsg) {
+        /* transact already tattled */
+        return -1;
+    }
+
+    // Cast to a CSET_READER_CONFIG_RESPONSE message.
+
+    pSetReaderRsp = (LLRP::CSET_READER_CONFIG_RESPONSE *)pRspMsg;
+
+    // Check the LLRPStatus parameter.
+
+    if (0 != checkLLRPStatus(pSetReaderRsp->getLLRPStatus(), "setImpinjReaderConfig")) {
+        /* checkLLRPStatus already tattled */
+        delete pRspMsg;
+        return -1;
+    }
+
+    // Done with the response message.
+
+    delete pRspMsg;
+
+    if (verbose)
+    {
+        printf("INFO: Set Impinj Reader Configuration \n");
+        fflush(stdout);
+    }
+
+
+    return 0;
+}
+
+
+
+
+
+
+
+QList<int> *CReader::getTransmitPowerList(void) {
+    return &transmitPowerList;
+}

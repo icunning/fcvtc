@@ -110,7 +110,7 @@
     </column>
     <column>
      <property name="text">
-      <string>LapTime (sec)</string>
+      <string>Lap Sec</string>
      </property>
      <property name="font">
       <font>
@@ -122,7 +122,7 @@
     </column>
     <column>
      <property name="text">
-      <string>LapSpeed (km/h)</string>
+      <string>Lap km/h</string>
      </property>
      <property name="font">
       <font>
@@ -140,7 +140,7 @@
      <x>0</x>
      <y>0</y>
      <width>940</width>
-     <height>26</height>
+     <height>20</height>
     </rect>
    </property>
   </widget>

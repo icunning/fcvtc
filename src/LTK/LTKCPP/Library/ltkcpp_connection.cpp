@@ -37,6 +37,7 @@
 
 
 #include <assert.h>
+#include <stdio.h>
 
 
 #if defined(linux) || defined(__APPLE__)

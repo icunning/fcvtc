@@ -36,12 +36,14 @@ macx {
 }
 
 
+message($$PWD)
 
 linux-g++ {
   message(Building for linux-g++)
   QMAKE_CXXFLAGS += -Wno-write-strings
 #  QMAKE_RPATHDIR = $$LIBDIR
   LIBS += $$LTKLIBDIR/libltkcpp.a
+  LIBS += /usr/lib64/libxml2.so.2
 }
 
 #message(QMAKE_REL_RPATH_BASE: $$QMAKE_REL_RPATH_BASE)

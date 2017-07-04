@@ -9,7 +9,7 @@
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-//#include "ltkcpp.h"
+#include "ltkcpp.h"
 #include "creader.h"
 
 
@@ -37,19 +37,31 @@ MainWindow::MainWindow(QWidget *parent) :
 
         int verbose = 0;
         int readerId = 1;
-        readerList.append(new CReader("192.168.1.98", readerId, verbose));
+        CReader *reader = new CReader();
+        int rc = reader->openConnection("192.168.1.98", readerId, verbose);
+        if (rc) {
+            printf("Error rc=%d\n", rc);
+            fflush(stdout);
+            exit(rc);
+        }
+        if (rc == 0) readerList.append(reader);
+
         for (int i=0; i<readerList.size(); i++) {
-            connect(readerList[0], SIGNAL(newTag(CTagInfo)), this, SLOT(onNewTag(CTagInfo)));
-            connect(readerList[0], SIGNAL(newLogMessage(QString)), this, SLOT(onNewLogMessage(QString)));
+//            for (int j=0; j<readerList[i]->getTransmitPowerList()->size(); j++) {
+//                printf("INFO: Reader %d Power index %d, power %d\n", i, j, readerList[i]->getTransmitPowerList()->at(j));
+//                fflush(stdout);
+//            }
+
+            connect(readerList[i], SIGNAL(newTag(CTagInfo)), this, SLOT(onNewTag(CTagInfo)));
+            connect(readerList[i], SIGNAL(newLogMessage(QString)), this, SLOT(onNewLogMessage(QString)));
         }
 
 
         // Start timer that will poll reader
 
         connect(&readerCheckTimer, SIGNAL(timeout()), this, SLOT(onReaderCheckTimeout()));
-        readerCheckTimer.setInterval(1000);
+        readerCheckTimer.setInterval(2000);
         readerCheckTimer.start();
-
     }
     catch (QString s) {
         QMessageBox::critical(this, "fcvtc", s);
@@ -72,7 +84,7 @@ MainWindow::~MainWindow()
 void MainWindow::onReaderCheckTimeout(void) {
     readerCheckTimer.stop();
     for (int i=0; i<readerList.size(); i++) {
-        readerList[i]->processRecentChipsSeen();
+        readerList[i]->processReports();//processRecentChipsSeen();
     }
     readerCheckTimer.start();
 }
@@ -85,7 +97,7 @@ void MainWindow::onNewTag(CTagInfo tagInfo) {
     static QList<double> previousTime;
     static QList<int> previousTagId;
 
-    if (tagInfo.readerId != 1) return;
+    //if (tagInfo.readerId != 1) return;
 
     // Current time (nearest second, not used for timing)
 
@@ -100,6 +112,8 @@ void MainWindow::onNewTag(CTagInfo tagInfo) {
         else s.append(s2.sprintf(" %02x", tagInfo.data[i]));
     }
     ui->messageConsoleTextEdit->insertHtml(s + "<br>");
+//    printf("A1 %s\n", s.toLatin1().data());
+//    fflush(stdout);
 
 
     // If necessary, increase size of table to accomodate new entry
@@ -189,5 +203,7 @@ void MainWindow::onNewTag(CTagInfo tagInfo) {
 
 
 void MainWindow::onNewLogMessage(QString s) {
+    printf("message: %s\n", s.toLatin1().data());
+    fflush(stdout);
     ui->messageConsoleTextEdit->insertHtml(s + "<br>");
 }

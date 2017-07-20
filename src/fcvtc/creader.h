@@ -16,11 +16,12 @@ public:
     void clear(void);
     int readerId;
     int antennaId;
-    double timeStampSec;
     QList<unsigned char> data;
+    QString dataText;
     unsigned long long timeStampUSec;
-    double firstSeenInApplicationSec;
+    unsigned long long firstSeenInApplicationUSec;
 };
+Q_DECLARE_METATYPE(CTagInfo)
 
 
 
@@ -29,7 +30,8 @@ Q_OBJECT
 public:
     CReader(void);
     ~CReader(void);
-    int openConnection(QString readerHostName, int readerId, int verbose=0);
+    int connectToReader(QString readerHostName, int readerId, int verbose=0);
+    //void process(void);
     QList<int> *getTransmitPowerList(void);
     int setTransmitPower(int index);
     int setReaderConfiguration(void);
@@ -63,8 +65,10 @@ private:
 signals:
     void newTag(CTagInfo);
     void newLogMessage(QString);
+    void error(QString);
 private slots:
-    void onSimulateReaderTimerTimeout(void);
+    void onStarted(void);
+//    void onQuit(void);
 };
 
 #endif // CREADER_H

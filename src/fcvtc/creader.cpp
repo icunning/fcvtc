@@ -4,13 +4,14 @@
 #include <QList>
 #include <QDateTime>
 #include <QTimer>
+#include <QThread>
 
 #include <unistd.h>
 
 #include "creader.h"
 
 
-// ********************************************************************************************************
+// **********************************************************************************************
 
 CTagInfo::CTagInfo(void) {
     clear();
@@ -26,7 +27,7 @@ void CTagInfo::clear(void) {
 
 
 
-// *********************************************************************************************************
+// **********************************************************************************************
 
 CReader::CReader(void) {
     readerId = 0;
@@ -35,26 +36,25 @@ CReader::CReader(void) {
     simulateReaderMode = false;
     pConnectionToReader = NULL;
     pTypeRegistry = NULL;
+
+    qRegisterMetaType<CTagInfo>();
 }
 
 
 
-int CReader::openConnection(QString readerHostName, int readerId, int verbose) {
-    int rc;
-    QString s;
-
+int CReader::connectToReader(QString readerHostName, int readerId, int verbose) {
     this->readerId = readerId;
     this->verbose = verbose;
+    QString s;
+    int rc;
 
-    // If reader hostname not provided, simulate reader operation by emitting signal at random intervals
+    // If reader hostname not provided, do not connect but set simulate reader operation flag
 
     if (readerHostName.isEmpty()) {
         simulateReaderMode = true;
-        simulateReaderTimer.setSingleShot(true);
-        connect(&simulateReaderTimer, SIGNAL(timeout(void)), this, SLOT(onSimulateReaderTimerTimeout(void)));
-        simulateReaderTimer.start(1000);
         return 0;
     }
+
     simulateReaderMode = false;
 
     /*
@@ -154,31 +154,6 @@ int CReader::openConnection(QString readerHostName, int readerId, int verbose) {
 }
 
 
-void CReader::onSimulateReaderTimerTimeout(void) {
-    static int count = 0;
-    static unsigned long long initialTimeStamp = 0;
-    CTagInfo tag;
-    tag.antennaId = 1;
-    tag.readerId = 1;
-    tag.timeStampUSec = QDateTime::currentMSecsSinceEpoch() * 1000;
-    int tagId = rand() % 10;    // random number between 0 and 9
-    if (count == 0) initialTimeStamp = tag.timeStampUSec;
-    tag.timeStampSec = (double)(tag.timeStampUSec - initialTimeStamp) / 1e6;
-    tag.data.reserve(6);
-    for (int i=0; i<6; i++) tag.data.append(0);
-    tag.data[0] = 0x20;
-    tag.data[1] = 0x16;
-    tag.data[2] = 0x00;
-    tag.data[3] = 0x00;
-    tag.data[4] = 0x00;
-    tag.data[5] = tagId;
-    if (count++ < 2000) {
-        emit newTag(tag);
-        int nextInterval = (rand() % 50) * 100;     // next interval between tags read 0 to 5000 msec
-        simulateReaderTimer.setInterval(nextInterval);
-        simulateReaderTimer.start();
-    }
-}
 
 
 CReader::~CReader(void) {
@@ -220,6 +195,47 @@ CReader::~CReader(void) {
     }
 }
 
+
+
+
+void CReader::onStarted(void) {
+    QString s;
+    CTagInfo tag;
+    unsigned long long initialTimeStampMSec = QDateTime::currentMSecsSinceEpoch();
+
+    // If simulateReaderMode flag is set, enter endless loop to emit newTag signals
+
+    if (simulateReaderMode) {
+        tag.readerId = 1;
+        tag.data.reserve(6);
+        for (int i=0; i<6; i++) tag.data.append(0);
+        tag.data[0] = 0x20;
+        tag.data[1] = 0x16;
+        tag.data[2] = 0x00;
+        tag.data[3] = 0x00;
+        tag.data[4] = 0x00;
+        tag.data[5] = 0x00;
+        int count = 0;
+        forever {
+            count++;
+            tag.antennaId = (rand() % 3) + 1;   // random antennaId between 1 and 3
+            tag.timeStampUSec = (QDateTime::currentMSecsSinceEpoch() - initialTimeStampMSec) * 1000;
+            //tag.timeStampSec = (double)tag.timeStampUSec / 1e6;
+            tag.data[5] = (rand() % 25) + 1;      // random number between 1 and 25
+            tag.dataText.clear();
+            for (int i=0; i<6; i++) {
+                tag.dataText.append(s.sprintf("%02x", tag.data[i]));
+            }
+            emit newTag(tag);
+            int intervalMSec = rand() % 1001;     // next interval between 0 and 1000 msec
+            usleep(intervalMSec * 1000);
+        }
+    }
+
+    // Otherwise enter endless loop in which we wait for next message and then emit newTag signal
+
+
+}
 
 
 
@@ -405,7 +421,6 @@ int CReader::resetConfigurationToFactoryDefaults(void) {
     LLRP::CMessage *pRspMsg;
     LLRP::CSET_READER_CONFIG_RESPONSE *pRsp;
     QString s;
-
     if (simulateReaderMode) return 0;
 
     /*
@@ -1108,26 +1123,28 @@ void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
                     firstTimeStamp = pTagReportData->getFirstSeenTimestampUTC()->getMicroseconds();
                 }
                 tagInfo.timeStampUSec = (unsigned long long)pTagReportData->getFirstSeenTimestampUTC()->getMicroseconds() - firstTimeStamp;
-                tagInfo.timeStampSec = (double)tagInfo.timeStampUSec / 1e6;
+                //tagInfo.timeStampSec = (double)tagInfo.timeStampUSec / 1e6;
                 tagInfo.data.reserve(n);
                 for (int i=0; i<n; i++) {
+                    QString s;
                     tagInfo.data.append(pValue[i]);
+                    tagInfo.dataText.append(s.sprintf("%02x", pValue[i]));
                 }
                 unsigned long long firstSeen = pTagReportData->getFirstSeenTimestampUTC()->getMicroseconds();
                 //unsigned long long lastSeen = pTagReportData->getLastSeenTimestampUTC()->getMicroseconds();
 
                 // Get current time in application sec
 
-                double currentApplicationSec = (double)QDateTime::currentMSecsSinceEpoch() / 1000.;
-                tagInfo.firstSeenInApplicationSec = currentApplicationSec;
+                unsigned long long currentApplicationUSec = QDateTime::currentMSecsSinceEpoch();
+                tagInfo.firstSeenInApplicationUSec = currentApplicationUSec;
 
                 // Remove any tags from list more than 5 sec old
 
                 for (int i=currentTagsList.size()-1; i>=0; i--) {
-                    double timeInList = currentApplicationSec - currentTagsList[i].firstSeenInApplicationSec;
-                    printf("%d: %llu %.3f\n", i, firstSeen, timeInList);
+                    unsigned long long timeInList = currentApplicationUSec - currentTagsList[i].firstSeenInApplicationUSec;
+                    printf("%d: %llu %llu\n", i, firstSeen, timeInList);
                     fflush(stdout);
-                    if (timeInList > 5.) currentTagsList.removeAt(i);
+                    if (timeInList > 5000000) currentTagsList.removeAt(i);
                 }
 
                 // If tag is not already in currentTagsList, add to list and emit signal

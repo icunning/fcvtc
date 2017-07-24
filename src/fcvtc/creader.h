@@ -16,8 +16,7 @@ public:
     void clear(void);
     int readerId;
     int antennaId;
-    QList<unsigned char> data;
-    QString dataText;
+    QString tagId;
     unsigned long long timeStampUSec;
     unsigned long long firstSeenInApplicationUSec;
 };
@@ -28,18 +27,19 @@ Q_DECLARE_METATYPE(CTagInfo)
 class CReader : public QObject {
 Q_OBJECT
 public:
-    CReader(void);
+    CReader(QString hostName, int readerId);
     ~CReader(void);
-    int connectToReader(QString readerHostName, int readerId, int verbose=0);
-    //void process(void);
+    int connectToReader(void);
     QList<int> *getTransmitPowerList(void);
     int setTransmitPower(int index);
     int setReaderConfiguration(void);
     int processReports(void);
 private:
+    QString hostName;
     int readerId;
     unsigned messageId;
-    int verbose;
+    //int verbose;
+    QTimer attemptConnectionTimer;
     int checkConnectionStatus(void);
     int scrubConfiguration(void);
     int resetConfigurationToFactoryDefaults(void);
@@ -63,11 +63,13 @@ private:
     QTimer simulateReaderTimer;
     bool simulateReaderMode;
 signals:
+    void connected(int readerId);
     void newTag(CTagInfo);
     void newLogMessage(QString);
     void error(QString);
 private slots:
     void onStarted(void);
+//    void onAttemptConnection(void);
 //    void onQuit(void);
 };
 

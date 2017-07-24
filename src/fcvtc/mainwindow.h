@@ -3,6 +3,9 @@
 
 #include <QMainWindow>
 #include <QTimer>
+#include <QMutex>
+#include <QDateTime>
+
 
 #include "creader.h"
 
@@ -10,6 +13,19 @@
 namespace Ui {
 class MainWindow;
 }
+
+
+struct rider_t {
+    QString tagId;
+    QString name;
+    unsigned long long previousTimeStampUSec;
+    QDateTime mostRecentDateTime;
+    int lapCount;
+    float bestLapTimeSec;
+    float lapTimeSumSec;
+};
+
+
 
 
 class MainWindow : public QMainWindow
@@ -20,10 +36,23 @@ public:
     ~MainWindow();
 private:
     Ui::MainWindow *ui;
-    QTimer readerCheckTimer;
+    QTimer clockTimer;
+    QTimer purgeActiveRidersListTimer;
     QList<CReader *> readerList;
+    QList<rider_t> activeRidersList;
+    QMutex lapsTableMutex;
+    QMutex activeRidersTableMutex;
+    int lapsTableTimeStampMaxAgeMin;
+    int activeRidersTableTimeStampMaxAgeMin;
+    int activeRidersTablePurgeIntervalSec;
+    unsigned long long initialTimeStampUSec;
+    unsigned long long initialLocalMSecFromEpoch;
+    float blackLineDistancem;
 private slots:
-    void onReaderCheckTimeout(void);
+    void onReaderConnected(int readerId);
+    void onClockTimerTimeout(void);
+    //void onAttemptConnectionTimerTimeout(void);
+    void onPurgeActiveRidersList(void);
     void onNewTag(CTagInfo);
     void onNewLogMessage(QString);
 };

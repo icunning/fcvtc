@@ -19,7 +19,7 @@ CTagInfo::CTagInfo(void) {
 
 
 void CTagInfo::clear(void) {
-    data.clear();
+    tagId.clear();
     timeStampUSec = 0;
     antennaId = 0;
 }
@@ -29,33 +29,95 @@ void CTagInfo::clear(void) {
 
 // **********************************************************************************************
 
-CReader::CReader(void) {
-    readerId = 0;
+CReader::CReader(QString hostName, int readerId) {
+    this->hostName = hostName;
+    this->readerId = readerId;
     messageId = 0;
-    verbose = 0;
-    simulateReaderMode = false;
+    simulateReaderMode = hostName.isEmpty();
     pConnectionToReader = NULL;
     pTypeRegistry = NULL;
-
     qRegisterMetaType<CTagInfo>();
 }
 
 
 
-int CReader::connectToReader(QString readerHostName, int readerId, int verbose) {
-    this->readerId = readerId;
-    this->verbose = verbose;
+CReader::~CReader(void) {
     QString s;
-    int rc;
 
-    // If reader hostname not provided, do not connect but set simulate reader operation flag
+    /*
+     * After we're done, try to leave the reader
+     * in a clean state for next use. This is best
+     * effort and no checking of the result is done.
+     */
 
-    if (readerHostName.isEmpty()) {
-        simulateReaderMode = true;
-        return 0;
+    emit newLogMessage(s.sprintf("INFO: Clean up reader configuration..."));
+
+    scrubConfiguration();
+
+    /*
+     * Close the connection and release its resources
+     */
+
+    if (pConnectionToReader) {
+        pConnectionToReader->closeConnectionToReader();
+        delete pConnectionToReader;
+        pConnectionToReader = NULL;
     }
 
-    simulateReaderMode = false;
+    /*
+     * Done with the registry.
+     */
+
+    if (pTypeRegistry) {
+        delete pTypeRegistry;
+        pTypeRegistry = NULL;
+    }
+
+    emit newLogMessage(s.sprintf("INFO: Finished"));
+}
+
+
+
+void CReader::onStarted(void) {
+    QString s;
+    CTagInfo tag;
+    unsigned long long initialMSecSinceEpoch = QDateTime::currentMSecsSinceEpoch();
+
+    // If simulateReaderMode flag is set, enter endless loop to emit newTag signals
+
+    if (simulateReaderMode) {
+        emit connected(readerId);
+        tag.readerId = readerId;
+        int count = 0;
+        forever {
+            count++;
+            tag.antennaId = (rand() % 3) + 1;   // random antennaId between 1 and 3
+            tag.timeStampUSec = (QDateTime::currentMSecsSinceEpoch() - initialMSecSinceEpoch) * 1000;
+            int id = (rand() % 16) + 1;      // random number between 1 and 16
+            tag.tagId = s.sprintf("2016000000%02x", id);
+            emit newTag(tag);
+            int intervalMSec = rand() % 1001;     // next interval between 0 and 1000 msec
+            usleep(intervalMSec * 1000);
+        }
+    }
+
+    // Otherwise open connection to reader and enter endless loop in which we process tag reports as they arrive
+
+    forever {
+        int rc = connectToReader();
+        if (rc == 0) {
+            forever {
+                processReports();
+            }
+        }
+    }
+}
+
+
+
+int CReader::connectToReader(void) {
+    QString s;
+    int rc;
 
     /*
      * Allocate the type registry. This is needed
@@ -87,13 +149,11 @@ int CReader::connectToReader(QString readerHostName, int readerId, int verbose) 
      * Open connection to the reader
      */
 
-    if (verbose) {
-        emit newLogMessage(s.sprintf("INFO: Connecting to %s....", readerHostName.toLatin1().data()));
-    }
+    emit newLogMessage(s.sprintf("INFO: Connecting to reader %d at %s....", readerId, hostName.toLatin1().data()));
 
-    rc = pConnectionToReader->openConnectionToReader(readerHostName.toLatin1().data());
+    rc = pConnectionToReader->openConnectionToReader(hostName.toLatin1().data());
     if (rc) {
-        emit newLogMessage(s.sprintf("ERROR: connect: %s (%d)", pConnectionToReader->getConnectError(), rc));
+        emit newLogMessage(s.sprintf("ERROR: openConnectionToReader(id=%d):: %s, error code %d", readerId, pConnectionToReader->getConnectError(), rc));
         delete pTypeRegistry;
         pTypeRegistry = NULL;
         delete pConnectionToReader;
@@ -107,13 +167,11 @@ int CReader::connectToReader(QString readerHostName, int readerId, int verbose) 
      * Each routine prints messages.
      */
 
-    if (verbose) {
-        emit newLogMessage(s.sprintf("INFO: Connected, checking status...."));
-    }
+    emit newLogMessage(s.sprintf("INFO: Connected, checking status...."));
 
     rc = checkConnectionStatus();
     if (rc != 0) {
-        emit newLogMessage(s.sprintf("checkConnectionStatus(): error %d - Cannot connect to tag reader.  This may mean another instance of this program is already running.", rc));
+        emit newLogMessage(s.sprintf("checkConnectionStatus(): error %d - Cannot connect to reader.  This may mean another instance of this program is already running.", rc));
         return 4;
     }
 
@@ -150,92 +208,15 @@ int CReader::connectToReader(QString readerHostName, int readerId, int verbose) 
         return 10;
     }
 
+    // Process reports as they come in
+
+    forever {
+        processReports();
+    }
+
     return 0;
 }
 
-
-
-
-CReader::~CReader(void) {
-    QString s;
-
-    /*
-     * After we're done, try to leave the reader
-     * in a clean state for next use. This is best
-     * effort and no checking of the result is done.
-     */
-
-    if (verbose) {
-        emit newLogMessage(s.sprintf("INFO: Clean up reader configuration..."));
-    }
-
-    scrubConfiguration();
-
-    /*
-     * Close the connection and release its resources
-     */
-
-    if (pConnectionToReader) {
-        pConnectionToReader->closeConnectionToReader();
-        delete pConnectionToReader;
-        pConnectionToReader = NULL;
-    }
-
-    /*
-     * Done with the registry.
-     */
-
-    if (pTypeRegistry) {
-        delete pTypeRegistry;
-        pTypeRegistry = NULL;
-    }
-
-    if (verbose) {
-        emit newLogMessage(s.sprintf("INFO: Finished"));
-    }
-}
-
-
-
-
-void CReader::onStarted(void) {
-    QString s;
-    CTagInfo tag;
-    unsigned long long initialTimeStampMSec = QDateTime::currentMSecsSinceEpoch();
-
-    // If simulateReaderMode flag is set, enter endless loop to emit newTag signals
-
-    if (simulateReaderMode) {
-        tag.readerId = 1;
-        tag.data.reserve(6);
-        for (int i=0; i<6; i++) tag.data.append(0);
-        tag.data[0] = 0x20;
-        tag.data[1] = 0x16;
-        tag.data[2] = 0x00;
-        tag.data[3] = 0x00;
-        tag.data[4] = 0x00;
-        tag.data[5] = 0x00;
-        int count = 0;
-        forever {
-            count++;
-            tag.antennaId = (rand() % 3) + 1;   // random antennaId between 1 and 3
-            tag.timeStampUSec = (QDateTime::currentMSecsSinceEpoch() - initialTimeStampMSec) * 1000;
-            //tag.timeStampSec = (double)tag.timeStampUSec / 1e6;
-            tag.data[5] = (rand() % 25) + 1;      // random number between 1 and 25
-            tag.dataText.clear();
-            for (int i=0; i<6; i++) {
-                tag.dataText.append(s.sprintf("%02x", tag.data[i]));
-            }
-            emit newTag(tag);
-            int intervalMSec = rand() % 1001;     // next interval between 0 and 1000 msec
-            usleep(intervalMSec * 1000);
-        }
-    }
-
-    // Otherwise enter endless loop in which we wait for next message and then emit newTag signal
-
-
-}
 
 
 
@@ -275,10 +256,6 @@ int CReader::checkConnectionStatus(void) {
     LLRP::CREADER_EVENT_NOTIFICATION *pNtf;
     LLRP::CReaderEventNotificationData *pNtfData;
     LLRP::CConnectionAttemptEvent *pEvent;
-
-    if (simulateReaderMode) {
-        return 0;
-    }
 
     /*
      * Expect the notification within 10 seconds.
@@ -341,9 +318,7 @@ int CReader::checkConnectionStatus(void) {
 
     if (pMessage) delete pMessage;
 
-    if (verbose) {
-        emit newLogMessage(s.sprintf("INFO: Connection status OK"));
-    }
+    emit newLogMessage(s.sprintf("INFO: Connection status OK"));
 
     /*
      * Victory.
@@ -382,7 +357,6 @@ int CReader::checkConnectionStatus(void) {
  *****************************************************************************/
 
 int CReader::scrubConfiguration(void) {
-    if (simulateReaderMode) return 0;
 
     if ( 0 != resetConfigurationToFactoryDefaults()) {
         return -1;
@@ -421,7 +395,6 @@ int CReader::resetConfigurationToFactoryDefaults(void) {
     LLRP::CMessage *pRspMsg;
     LLRP::CSET_READER_CONFIG_RESPONSE *pRsp;
     QString s;
-    if (simulateReaderMode) return 0;
 
     /*
      * Compose the command message
@@ -478,9 +451,7 @@ int CReader::resetConfigurationToFactoryDefaults(void) {
      * Tattle progress, maybe
      */
 
-    if (verbose) {
-        emit newLogMessage(s.sprintf("INFO: Configuration reset to factory defaults"));
-    }
+    emit newLogMessage(s.sprintf("INFO: Configuration reset to factory defaults"));
 
     /*
      * Victory.
@@ -515,8 +486,6 @@ int CReader::deleteAllROSpecs(void) {
     LLRP::CMessage *                  pRspMsg;
     LLRP::CDELETE_ROSPEC_RESPONSE *   pRsp;
     QString s;
-
-    if (simulateReaderMode) return 0;
 
     /*
      * Compose the command message
@@ -573,9 +542,7 @@ int CReader::deleteAllROSpecs(void) {
      * Tattle progress, maybe
      */
 
-    if (verbose) {
-        emit newLogMessage(s.sprintf("INFO: All ROSpecs are deleted"));
-    }
+    emit newLogMessage(s.sprintf("INFO: All ROSpecs are deleted"));
 
     /*
      * Victory.
@@ -659,8 +626,6 @@ int CReader::deleteAllROSpecs(void) {
 
 int CReader::addROSpec(void) {
     QString s;
-
-    if (simulateReaderMode) return 0;
 
     LLRP::CROSpecStartTrigger *pROSpecStartTrigger = new LLRP::CROSpecStartTrigger();
     pROSpecStartTrigger->setROSpecStartTriggerType(LLRP::ROSpecStartTriggerType_Null);
@@ -783,9 +748,7 @@ int CReader::addROSpec(void) {
      * Tattle progress, maybe
      */
 
-    if (verbose) {
-        emit newLogMessage(s.sprintf("INFO: ROSpec added"));
-    }
+    emit newLogMessage(s.sprintf("INFO: ROSpec added"));
 
     /*
      * Victory.
@@ -817,8 +780,6 @@ int CReader::enableROSpec (void) {
     LLRP::CMessage *                  pRspMsg;
     LLRP::CENABLE_ROSPEC_RESPONSE *   pRsp;
     QString s;
-
-    if (simulateReaderMode) return 0;
 
     /*
      * Compose the command message
@@ -875,9 +836,7 @@ int CReader::enableROSpec (void) {
      * Tattle progress, maybe
      */
 
-    if (verbose) {
-        emit newLogMessage(s.sprintf("INFO: ROSpec enabled"));
-    }
+    emit newLogMessage(s.sprintf("INFO: ROSpec enabled"));
 
     /*
      * Victory.
@@ -909,8 +868,6 @@ int CReader::startROSpec (void) {
     LLRP::CMessage *pRspMsg;
     LLRP::CSTART_ROSPEC_RESPONSE *pRsp;
     QString s;
-
-    if (simulateReaderMode) return 0;
 
     /*
      * Compose the command message
@@ -967,9 +924,7 @@ int CReader::startROSpec (void) {
      * Tattle progress
      */
 
-    if (verbose) {
-        emit newLogMessage(s.sprintf("INFO: ROSpec started"));
-    }
+    emit newLogMessage(s.sprintf("INFO: ROSpec started"));
 
     /*
      * Victory.
@@ -998,9 +953,6 @@ int CReader::startROSpec (void) {
 
 int CReader::processReports(void) {
     QString s;
-
-    if (simulateReaderMode) return 0;
-
     LLRP::CMessage *pMessage = NULL;
     const LLRP::CTypeDescriptor *pType = NULL;
 
@@ -1123,12 +1075,9 @@ void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
                     firstTimeStamp = pTagReportData->getFirstSeenTimestampUTC()->getMicroseconds();
                 }
                 tagInfo.timeStampUSec = (unsigned long long)pTagReportData->getFirstSeenTimestampUTC()->getMicroseconds() - firstTimeStamp;
-                //tagInfo.timeStampSec = (double)tagInfo.timeStampUSec / 1e6;
-                tagInfo.data.reserve(n);
                 for (int i=0; i<n; i++) {
                     QString s;
-                    tagInfo.data.append(pValue[i]);
-                    tagInfo.dataText.append(s.sprintf("%02x", pValue[i]));
+                    tagInfo.tagId.append(s.sprintf("%02x", pValue[i]));
                 }
                 unsigned long long firstSeen = pTagReportData->getFirstSeenTimestampUTC()->getMicroseconds();
                 //unsigned long long lastSeen = pTagReportData->getLastSeenTimestampUTC()->getMicroseconds();
@@ -1151,7 +1100,7 @@ void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
 
                 bool inList = false;
                 for (int i=0; i<currentTagsList.size(); i++) {
-                    if (tagInfo.data == currentTagsList[i].data) {
+                    if (tagInfo.tagId == currentTagsList[i].tagId) {
                         inList = true;
                     }
                 }
@@ -1265,7 +1214,7 @@ void CReader::handleAntennaEvent (LLRP::CAntennaEvent *pAntennaEvent) {
         break;
     }
 
-    if (verbose) emit newLogMessage(s.sprintf("NOTICE: Reader %d antenna %d is %s", readerId, AntennaID, pStateStr));
+    emit newLogMessage(s.sprintf("NOTICE: Reader %d antenna %d is %s", readerId, AntennaID, pStateStr));
 }
 
 
@@ -1394,11 +1343,11 @@ LLRP::CMessage *CReader::transact(LLRP::CMessage *pSendMsg) {
      * verbosity is 2 or higher.
      */
 
-    if (1 < verbose) {
-        emit newLogMessage(s.sprintf("\n==================================="));
-        emit newLogMessage(s.sprintf("INFO: Transact sending"));
-        printXMLMessage(pSendMsg);
-    }
+//    if (1 < verbose) {
+//        emit newLogMessage(s.sprintf("\n==================================="));
+//        emit newLogMessage(s.sprintf("INFO: Transact sending"));
+//        printXMLMessage(pSendMsg);
+//    }
 
     /*
      * Send the message, expect the response of certain type.
@@ -1429,11 +1378,11 @@ LLRP::CMessage *CReader::transact(LLRP::CMessage *pSendMsg) {
      * verbosity is 2 or higher.
      */
 
-    if (1 < verbose) {
-        emit newLogMessage(s.sprintf("\n- - - - - - - - - - - - - - - - - -"));
-        emit newLogMessage(s.sprintf("INFO: Transact received response"));
-        printXMLMessage(pRspMsg);
-    }
+//    if (1 < verbose) {
+//        emit newLogMessage(s.sprintf("\n- - - - - - - - - - - - - - - - - -"));
+//        emit newLogMessage(s.sprintf("INFO: Transact received response"));
+//        printXMLMessage(pRspMsg);
+//    }
 
     /*
      * If it is an ERROR_MESSAGE (response from reader
@@ -1516,11 +1465,11 @@ LLRP::CMessage *CReader::recvMessage(int nMaxMS) {
      * verbosity is 2 or higher.
      */
 
-    if (1 < verbose) {
-        emit newLogMessage(s.sprintf("\n==================================="));
-        emit newLogMessage(s.sprintf("INFO: Message received"));
-        printXMLMessage(pMessage);
-    }
+//    if (1 < verbose) {
+//        emit newLogMessage(s.sprintf("\n==================================="));
+//        emit newLogMessage(s.sprintf("INFO: Message received"));
+//        printXMLMessage(pMessage);
+//    }
 
     return pMessage;
 }
@@ -1552,11 +1501,11 @@ int CReader::sendMessage (LLRP::CMessage *pSendMsg) {
      * verbosity is 2 or higher.
      */
 
-    if (1 < verbose) {
-        emit newLogMessage(s.sprintf("\n==================================="));
-        emit newLogMessage(s.sprintf("INFO: Sending"));
-        printXMLMessage(pSendMsg);
-    }
+//    if (1 < verbose) {
+//        emit newLogMessage(s.sprintf("\n==================================="));
+//        emit newLogMessage(s.sprintf("INFO: Sending"));
+//        printXMLMessage(pSendMsg);
+//    }
 
     /*
      * If LLRP::CConnection::sendMessage() returns other than RC_OK
@@ -1703,9 +1652,10 @@ int CReader::getTransmitPowerCapabilities(void) {
     pPwrLvl = *PwrLvl;
 
 //    int powerLevelIndex = pPwrLvl->getIndex();
-    if(1 < verbose) {
-        printf("INFO: Reader Max Power index %u, power %d\n", pPwrLvl->getIndex(), pPwrLvl->getTransmitPowerValue());
-    }
+//    if(1 < verbose) {
+//        printf("INFO: Reader Max Power index %u, power %d\n", pPwrLvl->getIndex(), pPwrLvl->getTransmitPowerValue());
+//    }
+
     /* if this parameter is missing, or if this is not an Impinj
     ** reader, we can’t determine its capabilities so we exit
     ** Impinj Private Enterprise NUmber is 25882 */
@@ -1713,10 +1663,10 @@ int CReader::getTransmitPowerCapabilities(void) {
         delete pRspMsg;
         return 5;
     }
-    int modelNumber = pDeviceCap->getModelName();
-    if(1 < verbose) {
-        printf("INFO: Reader Model Name %u\n", modelNumber);
-    }
+//    int modelNumber = pDeviceCap->getModelName();
+//    if(1 < verbose) {
+//        printf("INFO: Reader Model Name %u\n", modelNumber);
+//    }
     /*
     * Done with the response message.
     */
@@ -1724,9 +1674,9 @@ int CReader::getTransmitPowerCapabilities(void) {
     /*
     * Tattle progress, maybe
     */
-    if(verbose) {
-        printf("INFO:Found LLRP Capabilities\n");
-    }
+//    if(verbose) {
+//        printf("INFO:Found LLRP Capabilities\n");
+//    }
     /*
     * Victory.
     */
@@ -1802,10 +1752,10 @@ int CReader::setReaderConfiguration(void) {
 
     delete pRspMsg;
 
-    if(1 < verbose)
-    {
-                printf("INFO: Reader hopTableID %u, ChannelIndex %u\n", hopTableID, channelIndex);
-    }
+//    if(1 < verbose)
+//    {
+//                printf("INFO: Reader hopTableID %u, ChannelIndex %u\n", hopTableID, channelIndex);
+//    }
 
 
 
@@ -1896,11 +1846,11 @@ int CReader::setReaderConfiguration(void) {
 
     delete pRspMsg;
 
-    if (verbose)
-    {
-        printf("INFO: Set Impinj Reader Configuration \n");
-        fflush(stdout);
-    }
+//    if (verbose)
+//    {
+//        printf("INFO: Set Impinj Reader Configuration \n");
+//        fflush(stdout);
+//    }
 
 
     return 0;

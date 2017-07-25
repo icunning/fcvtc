@@ -19,6 +19,19 @@
 #include "creader.h"
 
 
+#define LT_NAME             0
+#define LT_DATETIME         1
+#define LT_TIMESTAMP        2
+#define LT_LAPTIME          3
+
+#define AT_NAME             0
+#define AT_DATETIME         1
+#define AT_LAPCOUNT         2
+#define AT_BESTLAPTIME      3
+#define AT_AVERAGELAPTIME   4
+
+
+
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -30,10 +43,14 @@ MainWindow::MainWindow(QWidget *parent) :
     initialTimeStampUSec = 0;
 
     blackLineDistancem = 138.;
-    lapsTableTimeStampMaxAgeMin = 2;            // Start removing entries from lapsTable when this old (minutes)
-    activeRidersTableTimeStampMaxAgeMin = 2;    // Start removing riders from activeRidersTable when this old (minutes)
-    activeRidersTablePurgeIntervalSec = 10;     // interval between purge actions on activeRidersTable and activeRidersList
+    lapsTableTimeStampMaxAgeSec = 10 * 60;          // Start removing entries from lapsTable when this old (minutes)
+    activeRidersTableTimeStampMaxAgeSec = 10 * 60;  // Start removing riders from activeRidersTable when this old (minutes)
+    activeRidersTablePurgeIntervalSec = 10 * 60;         // interval between purge actions on activeRidersTable and activeRidersList
+    activeRidersSortingEnabled = false;             // must be false at present
+    lapsTableSortingEnabled = true;
 
+    initialTimeStampUSec = 0;
+    initialSinceEpochMSec = 0;
 
     // Create 1-sec timer for panel dateTime and possibly other things
 
@@ -55,19 +72,19 @@ MainWindow::MainWindow(QWidget *parent) :
     t->setColumnWidth(1, 100);  // time
     t->setColumnWidth(2, 150);  // timeStamp
     t->setColumnWidth(3, 100);  // lapTime
-    t->setSortingEnabled(true);
+    t->setSortingEnabled(lapsTableSortingEnabled);
     t->setEnabled(false);
 
 
     // Configure riders table
 
     t = ui->activeRidersTableWidget;
-    t->setColumnWidth(0, 250);  // name
-    t->setColumnWidth(1, 100);  // time
-    t->setColumnWidth(2, 100);  // lapCount
-    t->setColumnWidth(3, 100);  // bestLapTime;
-    t->setColumnWidth(4, 100);  // averageLapTime;
-    t->setSortingEnabled(false);
+    t->setColumnWidth(AT_NAME, 250);  // name
+    t->setColumnWidth(AT_DATETIME, 180);  // time
+    t->setColumnWidth(AT_LAPCOUNT, 70);  // lapCount
+    t->setColumnWidth(AT_BESTLAPTIME, 100);  // bestLapTime;
+    t->setColumnWidth(AT_AVERAGELAPTIME, 100);  // averageLapTime;
+    t->setSortingEnabled(activeRidersSortingEnabled);
     t->setEnabled(false);
 
 
@@ -109,6 +126,9 @@ MainWindow::MainWindow(QWidget *parent) :
 
 
 
+
+
+
 MainWindow::~MainWindow()
 {
     delete ui;
@@ -132,32 +152,47 @@ void MainWindow::onClockTimerTimeout(void) {
 // Then loop through lapsTable and remove old entries.
 //
 void MainWindow::onPurgeActiveRidersList(void) {
+    QString s;
     QDateTime currentDateTime(QDateTime::currentDateTime());
 
     activeRidersTableMutex.lock();
+    ui->activeRidersTableWidget->setSortingEnabled(false);
     for (int i=activeRidersList.size()-1; i>=0; i--) {
-        long long inactiveSec =  activeRidersList[i].mostRecentDateTime.secsTo(currentDateTime);
-        if ((inactiveSec / 60) >= activeRidersTableTimeStampMaxAgeMin) {
+        unsigned long long inactiveSec = QDateTime::fromString(ui->activeRidersTableWidget->item(i, AT_DATETIME)->text(), "yyyy-MM-dd_hh:mm:ss").secsTo(currentDateTime);
+        //ui->activeRidersTableWidget->item(i, AT_BESTLAPTIME)->setText(s.sprintf("%lld", inactiveSec));
+        if (inactiveSec >= activeRidersTableTimeStampMaxAgeSec) {
             activeRidersList.removeAt(i);
             ui->activeRidersTableWidget->removeRow(i);
         }
     }
     activeRidersTableMutex.unlock();
+    ui->activeRidersTableWidget->setSortingEnabled(activeRidersSortingEnabled);
 
     // Loop through lapsTable and remove any entries where the timeStamp is older than threshold
 
     lapsTableMutex.lock();
     ui->lapsTableWidget->setSortingEnabled(false);
-    unsigned long long currentLocalMSecFromEpoch = currentDateTime.toMSecsSinceEpoch();
-    for (int i=ui->lapsTableWidget->rowCount()-1; i>=0; i--) {
-        unsigned long long timeStampUSec = ui->lapsTableWidget->item(i, 2)->text().toULongLong();
-        long long timeStampAgeSec = (currentLocalMSecFromEpoch - initialLocalMSecFromEpoch - (timeStampUSec - initialTimeStampUSec) / 1000) / 1000;
-        if ((timeStampAgeSec / 60) >= activeRidersTableTimeStampMaxAgeMin) {
+    bool scrollToBottomRequired = false;
+    if (ui->lapsTableWidget->verticalScrollBar()->sliderPosition() == ui->lapsTableWidget->verticalScrollBar()->maximum()) {
+        scrollToBottomRequired = true;
+    }
+    unsigned long long currentSinceEpochMSec = currentDateTime.toMSecsSinceEpoch();
+    for (int i=ui->lapsTableWidget->rowCount()-1; i>=0; i--) {  // ignore last entry
+        unsigned long long timeStampUSec = ui->lapsTableWidget->item(i, LT_TIMESTAMP)->text().toULongLong();
+        long long timeStampSinceInitialMSec = (timeStampUSec - initialTimeStampUSec) / 1000;
+        long long currentSinceInitialMSec = currentSinceEpochMSec - initialSinceEpochMSec;
+        long long timeStampAgeSec = (currentSinceInitialMSec - timeStampSinceInitialMSec) / 1000;
+        //ui->lapsTableWidget->item(i, LT_DATETIME)->setText(s.setNum(timeStampAgeSec));
+        if (timeStampAgeSec < 0) timeStampAgeSec = 0;   // required because???
+        if (timeStampAgeSec >= lapsTableTimeStampMaxAgeSec) {
             ui->lapsTableWidget->removeRow(i);
         }
     }
+    if (scrollToBottomRequired) {
+        ui->lapsTableWidget->scrollToBottom();
+    }
     lapsTableMutex.unlock();
-    ui->lapsTableWidget->setSortingEnabled(true);
+    ui->lapsTableWidget->setSortingEnabled(lapsTableSortingEnabled);
 }
 
 
@@ -186,17 +221,18 @@ void MainWindow::onNewTag(CTagInfo tagInfo) {
 
     tagCount++;
 
+    // Keep track of time and timeStamp of first tag to be used to assess age of tag
+
+    if (tagCount == 1) {
+        initialTimeStampUSec = tagInfo.timeStampUSec;
+        initialSinceEpochMSec = QDateTime::currentMSecsSinceEpoch();
+    }
+
     // Current time (nearest second, used for display, not timing)
 
     QDateTime currentDateTime(QDateTime::currentDateTime());
     QString time = currentDateTime.toString("hh:mm:ss");
-
-    // Keep track of timeStamp and time of first tag to be used to assess age of tag
-
-    if (tagCount == 1) {
-        initialTimeStampUSec = tagInfo.timeStampUSec;
-        initialLocalMSecFromEpoch = QDateTime::currentMSecsSinceEpoch();
-    }
+    QString dateTime = currentDateTime.toString("yyyy-MM-dd_hh:mm:ss");
 
     // Add string to messages window
 
@@ -212,13 +248,6 @@ void MainWindow::onNewTag(CTagInfo tagInfo) {
     }
 
 
-    // Turn off table sorting and lock mutex while we update tables
-
-    ui->lapsTableWidget->setSortingEnabled(false);
-    lapsTableMutex.lock();
-    activeRidersTableMutex.lock();
-
-
     // Check to see if tag is in the ridersList and get index if it is
 
     int activeRidersListIndex = -1;
@@ -229,22 +258,24 @@ void MainWindow::onNewTag(CTagInfo tagInfo) {
         }
     }
 
-
     // Get name corresponding to tagId.  If in ridersList, use that.  Otherwise ask dBase.
     // Default to tagId.
 
     QString name;
     if (activeRidersListIndex >= 0) {
+
+        // Get from activeRidersList
+
         name = activeRidersList[activeRidersListIndex].name;
     }
     else {
+
+        // Get from dBase
+
         bool ok;
         unsigned long long id = tagInfo.tagId.toULongLong(&ok, 16);
         name.clear();
         switch (id & 0x0000ffff) {
-        case 0:
-            name = "Chris";
-            break;
         case 1:
             name = "Peter";
             break;
@@ -275,6 +306,13 @@ void MainWindow::onNewTag(CTagInfo tagInfo) {
     double maxLapSec = 120.;
     if (lapSec > maxLapSec) lapSec = 0.;
 
+    // Turn off table sorting and lock mutex while we update tables
+
+    lapsTableMutex.lock();
+    activeRidersTableMutex.lock();
+    ui->lapsTableWidget->setSortingEnabled(false);
+    ui->activeRidersTableWidget->setSortingEnabled(false);
+
     // Increase size of lapsTable and add new entry
 
     t = ui->lapsTableWidget;
@@ -289,22 +327,20 @@ void MainWindow::onNewTag(CTagInfo tagInfo) {
         t->scrollToBottom();
     }
 
-    // Add entry to new row
-
     QTableWidgetItem *item;
-    t->setItem(r, 0, new QTableWidgetItem());
-    t->item(r, 0)->setText(name);
+    t->setItem(r, LT_NAME, new QTableWidgetItem());
+    t->item(r, LT_NAME)->setText(name);
 
-    t->setItem(r, 1, new QTableWidgetItem());
-    t->item(r, 1)->setText(time);
+    t->setItem(r, LT_DATETIME, new QTableWidgetItem());
+    t->item(r, LT_DATETIME)->setText(time);
 
-    t->setItem(r,2, new QTableWidgetItem());
-    t->item(r, 2)->setText(s.setNum(tagInfo.timeStampUSec));
+    t->setItem(r, LT_TIMESTAMP, new QTableWidgetItem());
+    t->item(r, LT_TIMESTAMP)->setText(s.setNum(tagInfo.timeStampUSec));
 
     if (lapSec > 0.) {
         item = new QTableWidgetItem();
         item->setData(Qt::EditRole, lapSec);
-        t->setItem(r, 3, item);
+        t->setItem(r, LT_LAPTIME, item);
 
         double lapSpeed = 0.;
         if (lapSec > 0.) {
@@ -318,8 +354,6 @@ void MainWindow::onNewTag(CTagInfo tagInfo) {
 
     // If rider was not currently in activeRidersList, add to list and also activeRidersTable.
 
-    // Add rider to activeRidersList if not in list
-
     if (activeRidersListIndex < 0) {
         rider_t rider;
         rider.name = name;
@@ -330,14 +364,14 @@ void MainWindow::onNewTag(CTagInfo tagInfo) {
         rider.bestLapTimeSec = 1.e10;
         rider.lapTimeSumSec = 0.;
         activeRidersList.append(rider);
-        activeRidersListIndex = activeRidersList.size();
+        activeRidersListIndex = activeRidersList.size() - 1;
 
         t = ui->activeRidersTableWidget;
         bool scrollToBottomRequired = false;
         if (t->verticalScrollBar()->sliderPosition() == t->verticalScrollBar()->maximum()) {
             scrollToBottomRequired = true;
         }
-        activeRidersListIndex = t->rowCount();
+
         t->insertRow(activeRidersListIndex);
         t->setRowHeight(activeRidersListIndex, 24);
         if (scrollToBottomRequired) {
@@ -348,31 +382,31 @@ void MainWindow::onNewTag(CTagInfo tagInfo) {
 
         QTableWidgetItem *item = new QTableWidgetItem;
         item->setText(name);
-        t->setItem(activeRidersListIndex, 0, item);
+        t->setItem(activeRidersListIndex, AT_NAME, item);
 
         // Second column is current time
 
         item = new QTableWidgetItem;
-        item->setText(time);
-        t->setItem(activeRidersListIndex, 1, item);
+        item->setText(dateTime);
+        t->setItem(activeRidersListIndex, AT_DATETIME, item);
 
         // Third column is lap count
 
         item = new QTableWidgetItem;
         item->setData(Qt::EditRole, 0);
-        t->setItem(activeRidersListIndex, 2, item);
+        t->setItem(activeRidersListIndex, AT_LAPCOUNT, item);
 
         // Fourth column is best lap time
 
         item = new QTableWidgetItem;
         item->setData(Qt::EditRole, 0.);
-        t->setItem(activeRidersListIndex, 3, item);
+        t->setItem(activeRidersListIndex, AT_BESTLAPTIME, item);
 
         // Fifth column is average lap time
 
         item = new QTableWidgetItem;
         item->setData(Qt::EditRole, 0.);
-        t->setItem(activeRidersListIndex, 4, item);
+        t->setItem(activeRidersListIndex, AT_AVERAGELAPTIME, item);
 
     }
 
@@ -382,22 +416,23 @@ void MainWindow::onNewTag(CTagInfo tagInfo) {
     if (lapSec > 0.) {  // only include complete laps
         activeRidersList[activeRidersListIndex].lapCount += 1;
         activeRidersList[activeRidersListIndex].lapTimeSumSec += lapSec;
+        if (lapSec < activeRidersList[activeRidersListIndex].bestLapTimeSec) activeRidersList[activeRidersListIndex].bestLapTimeSec = lapSec;
     }
-    if (lapSec < activeRidersList[activeRidersListIndex].bestLapTimeSec) activeRidersList[activeRidersListIndex].bestLapTimeSec = lapSec;
 
-    ui->activeRidersTableWidget->item(activeRidersListIndex, 1)->setText(time);
-    ui->activeRidersTableWidget->item(activeRidersListIndex, 2)->setData(Qt::EditRole, activeRidersList[activeRidersListIndex].lapCount);
+    ui->activeRidersTableWidget->item(activeRidersListIndex, AT_DATETIME)->setText(dateTime);
+    ui->activeRidersTableWidget->item(activeRidersListIndex, AT_LAPCOUNT)->setData(Qt::EditRole, activeRidersList[activeRidersListIndex].lapCount);
 
     if (activeRidersList[activeRidersListIndex].lapCount >= 1) {
-        ui->activeRidersTableWidget->item(activeRidersListIndex, 3)->setData(Qt::EditRole, activeRidersList[activeRidersListIndex].bestLapTimeSec);
-        ui->activeRidersTableWidget->item(activeRidersListIndex, 4)->setData(Qt::EditRole, activeRidersList[activeRidersListIndex].lapTimeSumSec / (float)activeRidersList[activeRidersListIndex].lapCount);
+        ui->activeRidersTableWidget->item(activeRidersListIndex, AT_BESTLAPTIME)->setData(Qt::EditRole, activeRidersList[activeRidersListIndex].bestLapTimeSec);
+        ui->activeRidersTableWidget->item(activeRidersListIndex, AT_AVERAGELAPTIME)->setData(Qt::EditRole, activeRidersList[activeRidersListIndex].lapTimeSumSec / (float)activeRidersList[activeRidersListIndex].lapCount);
     }
 
     // Re-enable sorting only if lapsTable is not really large
 
     if (ui->lapsTableWidget->rowCount() < 10000) {
-        ui->lapsTableWidget->setSortingEnabled(true);
+        ui->lapsTableWidget->setSortingEnabled(lapsTableSortingEnabled);
     }
+    ui->activeRidersTableWidget->setSortingEnabled(activeRidersSortingEnabled);
 
     // Unlock tables mutex
 
@@ -410,7 +445,9 @@ void MainWindow::onNewTag(CTagInfo tagInfo) {
     ui->lapCountLineEdit->setText(s.setNum(tagCount));
     ui->riderCountLineEdit->setText(s.setNum(ui->activeRidersTableWidget->rowCount()));
 
+//    onPurgeActiveRidersList();
 }
+
 
 
 void MainWindow::onNewLogMessage(QString s) {

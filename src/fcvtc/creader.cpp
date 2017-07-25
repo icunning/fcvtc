@@ -96,7 +96,9 @@ void CReader::onStarted(void) {
             int id = (rand() % 16) + 1;      // random number between 1 and 16
             tag.tagId = s.sprintf("2016000000%02x", id);
             emit newTag(tag);
-            int intervalMSec = rand() % 1001;     // next interval between 0 and 1000 msec
+            //tag.tagId = s.sprintf("2016000001%02x", id);
+            //emit newTag(tag);
+            int intervalMSec = rand() % 1000 + 1;     // next interval between 0 and 1000 msec
             usleep(intervalMSec * 1000);
         }
     }

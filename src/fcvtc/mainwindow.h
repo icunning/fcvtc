@@ -6,6 +6,10 @@
 #include <QMutex>
 #include <QDateTime>
 
+#include <QTableView>
+#include <QLabel>
+#include <QPushButton>
+
 
 #include "creader.h"
 
@@ -28,6 +32,7 @@ struct rider_t {
 
 
 
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -42,16 +47,17 @@ private:
     QList<rider_t> activeRidersList;
     QMutex lapsTableMutex;
     QMutex activeRidersTableMutex;
-    int lapsTableTimeStampMaxAgeMin;
-    int activeRidersTableTimeStampMaxAgeMin;
+    long long lapsTableTimeStampMaxAgeSec;
+    unsigned long long activeRidersTableTimeStampMaxAgeSec;
     int activeRidersTablePurgeIntervalSec;
     unsigned long long initialTimeStampUSec;
-    unsigned long long initialLocalMSecFromEpoch;
+    unsigned long long initialSinceEpochMSec;
     float blackLineDistancem;
+    bool lapsTableSortingEnabled;
+    bool activeRidersSortingEnabled;
 private slots:
     void onReaderConnected(int readerId);
     void onClockTimerTimeout(void);
-    //void onAttemptConnectionTimerTimeout(void);
     void onPurgeActiveRidersList(void);
     void onNewTag(CTagInfo);
     void onNewLogMessage(QString);

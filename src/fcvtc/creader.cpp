@@ -90,21 +90,23 @@ void CReader::onStarted(void) {
         tag.readerId = readerId;
         int count = 0;
         forever {
-            count++;
-            tag.antennaId = (rand() % 3) + 1;   // random antennaId between 1 and 3
-            tag.timeStampUSec = (QDateTime::currentMSecsSinceEpoch() - initialMSecSinceEpoch) * 1000;
-            int id = (rand() % 16) + 1;      // random number between 1 and 16
-            tag.tagId = s.sprintf("2016000000%02x", id);
-            emit newTag(tag);
-            //tag.tagId = s.sprintf("2016000001%02x", id);
-            //emit newTag(tag);
-            int intervalMSec = rand() % 1000 + 1;     // next interval between 0 and 1000 msec
-            usleep(intervalMSec * 1000);
+            for (int i=0; i<10000; i++) {
+                count++;
+                tag.antennaId = (rand() % 3) + 1;   // random antennaId between 1 and 3
+                tag.timeStampUSec = (QDateTime::currentMSecsSinceEpoch() - initialMSecSinceEpoch) * 1000;
+                int id = (rand() % 16) + 1;      // random number between 1 and 16
+                tag.tagId = s.sprintf("2016000000%02x", id);
+                emit newTag(tag);
+                int intervalMSec = rand() % 1000 + 1;     // next interval between 0 and 1000 msec
+                usleep(intervalMSec * 1000);
+            }
+            sleep(600);
         }
     }
 
     // Otherwise open connection to reader and enter endless loop in which we process tag reports as they arrive
 
+    emit connected(readerId);
     forever {
         int rc = connectToReader();
         if (rc == 0) {

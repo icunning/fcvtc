@@ -25,6 +25,7 @@ struct rider_t {
     unsigned long long previousTimeStampUSec;
     QDateTime mostRecentDateTime;
     int lapCount;
+    float lapTimeSec;
     float bestLapTimeSec;
     float lapTimeSumSec;
 };
@@ -48,7 +49,7 @@ private:
     QMutex lapsTableMutex;
     QMutex activeRidersTableMutex;
     long long lapsTableTimeStampMaxAgeSec;
-    unsigned long long activeRidersTableTimeStampMaxAgeSec;
+    long long activeRidersTableTimeStampMaxAgeSec;
     int activeRidersTablePurgeIntervalSec;
     unsigned long long initialTimeStampUSec;
     unsigned long long initialSinceEpochMSec;

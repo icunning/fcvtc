@@ -71,7 +71,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     // Configure gui
 
-    ui->trackNameLabel->setText(trackName + " LLRP Laps");
+    ui->trackNameLabel->setText(trackName + " LLRPLaps");
     setWindowTitle("LLRPLaps: " + trackName);
 
 

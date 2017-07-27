@@ -1,10 +1,13 @@
+// creader.h
+//
+
 #ifndef CREADER_H
 #define CREADER_H
 
 
 #include <QObject>
 #include <QString>
-#include <QTimer>
+#include <QList>
 
 #include "main.h"
 #include "ltkcpp.h"
@@ -38,8 +41,6 @@ private:
     QString hostName;
     int readerId;
     unsigned messageId;
-    //int verbose;
-    QTimer attemptConnectionTimer;
     int checkConnectionStatus(void);
     int scrubConfiguration(void);
     int resetConfigurationToFactoryDefaults(void);
@@ -60,8 +61,8 @@ private:
     void processTagList(LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT);
     int getTransmitPowerCapabilities(void);
     QList<int> transmitPowerList;
-    QTimer simulateReaderTimer;
     bool simulateReaderMode;
+    unsigned long long maxAllowableTimeInListUSec;
 signals:
     void connected(int readerId);
     void newTag(CTagInfo);
@@ -69,8 +70,6 @@ signals:
     void error(QString);
 private slots:
     void onStarted(void);
-//    void onAttemptConnection(void);
-//    void onQuit(void);
 };
 
 #endif // CREADER_H

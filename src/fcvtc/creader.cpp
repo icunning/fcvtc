@@ -1,10 +1,13 @@
 // creader.cpp
+// Definition of class CReader used to interface with reader hardware using the LTKCPP and LLRP libraries.
+// Signals generated:
+//   newLogMessage(QString message) - sends text message to gui
+//   connected(int readerId)        - tells gui we have successfully connected to reader with readerId
+//   newTag(CTagInfo tagInfo)       - tells gui a new tag has been detected
 
-#include <QApplication>
+
 #include <QList>
 #include <QDateTime>
-#include <QTimer>
-#include <QThread>
 
 #include <unistd.h>
 
@@ -36,7 +39,9 @@ CReader::CReader(QString hostName, int readerId) {
     simulateReaderMode = hostName.isEmpty();
     pConnectionToReader = NULL;
     pTypeRegistry = NULL;
-    qRegisterMetaType<CTagInfo>();
+    qRegisterMetaType<CTagInfo>();      // required to emit signal with CTagInfo
+
+    maxAllowableTimeInListUSec = 5000000;   // Tags seen in each report this long are considered same tag
 }
 
 
@@ -81,23 +86,29 @@ CReader::~CReader(void) {
 void CReader::onStarted(void) {
     QString s;
     CTagInfo tag;
-    unsigned long long initialMSecSinceEpoch = QDateTime::currentMSecsSinceEpoch();
 
     // If simulateReaderMode flag is set, enter endless loop to emit newTag signals
 
     if (simulateReaderMode) {
+        emit newLogMessage("Simulation mode to simulate reader signals");
         emit connected(readerId);
         tag.readerId = readerId;
         int count = 0;
+        unsigned long long initialMSecSinceEpoch(QDateTime::currentMSecsSinceEpoch());
         forever {
-            for (int i=0; i<10000; i++) {
+            for (int i=0; i<1000; i++) {
                 count++;
                 tag.antennaId = (rand() % 3) + 1;   // random antennaId between 1 and 3
                 tag.timeStampUSec = (QDateTime::currentMSecsSinceEpoch() - initialMSecSinceEpoch) * 1000;
                 int id = (rand() % 16) + 1;      // random number between 1 and 16
                 tag.tagId = s.sprintf("2016000000%02x", id);
                 emit newTag(tag);
-                int intervalMSec = rand() % 1000 + 1;     // next interval between 0 and 1000 msec
+                if (id == 2) {
+                    usleep(100000);
+                    tag.timeStampUSec = (QDateTime::currentMSecsSinceEpoch() - initialMSecSinceEpoch) * 1000;
+                    emit newTag(tag);
+                }
+                int intervalMSec = rand() % 2000 + 1;     // next interval between 0 and 2000 msec
                 usleep(intervalMSec * 1000);
             }
             sleep(600);
@@ -963,9 +974,6 @@ int CReader::processReports(void) {
     // Wait up to 7 seconds for a message. The report
     // should occur within 5 seconds. If no message, just return.
 
-    printf("a0\n");
-    fflush(stdout);
-
     pMessage = recvMessage(500);
     if (!pMessage) {
         return 0;
@@ -1083,8 +1091,7 @@ void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
                     QString s;
                     tagInfo.tagId.append(s.sprintf("%02x", pValue[i]));
                 }
-                unsigned long long firstSeen = pTagReportData->getFirstSeenTimestampUTC()->getMicroseconds();
-                //unsigned long long lastSeen = pTagReportData->getLastSeenTimestampUTC()->getMicroseconds();
+//                unsigned long long firstSeen = pTagReportData->getFirstSeenTimestampUTC()->getMicroseconds();
 
                 // Get current time in application sec
 
@@ -1095,9 +1102,7 @@ void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
 
                 for (int i=currentTagsList.size()-1; i>=0; i--) {
                     unsigned long long timeInList = currentApplicationUSec - currentTagsList[i].firstSeenInApplicationUSec;
-                    printf("%d: %llu %llu\n", i, firstSeen, timeInList);
-                    fflush(stdout);
-                    if (timeInList > 5000000) currentTagsList.removeAt(i);
+                    if (timeInList > maxAllowableTimeInListUSec) currentTagsList.removeAt(i);
                 }
 
                 // If tag is not already in currentTagsList, add to list and emit signal
@@ -1121,7 +1126,6 @@ void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
         else {
             emit newLogMessage(QString("Missing-epc-data in tag"));
         }
-    qApp->processEvents();
     }
 }
 

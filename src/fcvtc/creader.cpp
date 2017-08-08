@@ -18,6 +18,7 @@
 
 CTagInfo::CTagInfo(void) {
     clear();
+
 }
 
 
@@ -32,11 +33,14 @@ void CTagInfo::clear(void) {
 
 // **********************************************************************************************
 
-CReader::CReader(QString hostName, int readerId) {
+CReader::CReader(QString hostName, CReader::antennaPositionType antennaPosition) {
     this->hostName = hostName;
     this->readerId = readerId;
+    this->antennaPosition = antennaPosition;
     messageId = 0;
     simulateReaderMode = hostName.isEmpty();
+    waitingForFirstTag = true;
+    timeStampCorrectionUSec = 0;
     pConnectionToReader = NULL;
     pTypeRegistry = NULL;
     qRegisterMetaType<CTagInfo>();      // required to emit signal with CTagInfo
@@ -87,25 +91,24 @@ void CReader::onStarted(void) {
     QString s;
     CTagInfo tag;
 
-    // If simulateReaderMode flag is set, enter endless loop to emit newTag signals
+    // If simulateReaderMode flag is set, enter endless loop to emit newTag signals at random intervals
 
     if (simulateReaderMode) {
-        emit newLogMessage("Simulation mode to simulate reader signals");
+        emit newLogMessage("Simulation mode to simulate reader signals without being connected to reader");
         emit connected(readerId);
         tag.readerId = readerId;
         int count = 0;
-        unsigned long long initialMSecSinceEpoch(QDateTime::currentMSecsSinceEpoch());
         forever {
             for (int i=0; i<1000; i++) {
                 count++;
                 tag.antennaId = (rand() % 3) + 1;   // random antennaId between 1 and 3
-                tag.timeStampUSec = (QDateTime::currentMSecsSinceEpoch() - initialMSecSinceEpoch) * 1000;
+                tag.timeStampUSec = QDateTime::currentMSecsSinceEpoch() * 1000;
                 int id = (rand() % 16) + 1;      // random number between 1 and 16
                 tag.tagId = s.sprintf("2016000000%02x", id);
                 emit newTag(tag);
                 if (id == 2) {
                     usleep(100000);
-                    tag.timeStampUSec = (QDateTime::currentMSecsSinceEpoch() - initialMSecSinceEpoch) * 1000;
+                    tag.timeStampUSec = QDateTime::currentMSecsSinceEpoch() * 1000;
                     emit newTag(tag);
                 }
                 int intervalMSec = rand() % 2000 + 1;     // next interval between 0 and 2000 msec
@@ -117,10 +120,10 @@ void CReader::onStarted(void) {
 
     // Otherwise open connection to reader and enter endless loop in which we process tag reports as they arrive
 
-    emit connected(readerId);
     forever {
         int rc = connectToReader();
         if (rc == 0) {
+            emit connected(readerId);
             forever {
                 processReports();
             }
@@ -221,12 +224,6 @@ int CReader::connectToReader(void) {
 
     if (startROSpec() != 0) {
         return 10;
-    }
-
-    // Process reports as they come in
-
-    forever {
-        processReports();
     }
 
     return 0;
@@ -971,7 +968,7 @@ int CReader::processReports(void) {
     LLRP::CMessage *pMessage = NULL;
     const LLRP::CTypeDescriptor *pType = NULL;
 
-    // Wait up to 7 seconds for a message. The report
+    // Wait for a message. The report
     // should occur within 5 seconds. If no message, just return.
 
     pMessage = recvMessage(500);
@@ -1049,11 +1046,10 @@ void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
         const LLRP::CTypeDescriptor *pType;
         LLRP::CParameter *pEPCParameter = pTagReportData->getEPCParameter();
         CTagInfo tagInfo;
-        static unsigned long long firstTimeStamp = 0;   // For convenience, subtract initial timestamp from reported timestamps
 
         /*
          * Process the EPC. It could be a 96-bit EPC_96 parameter
-         * or an variable length EPCData parameter.
+         * or a variable length EPCData parameter.
          */
 
         if (NULL != pEPCParameter) {
@@ -1080,29 +1076,35 @@ void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
                 n = (my_u1v.m_nBit + 7u) / 8u;
             }
 
+            // Get current local time in application msec
+
+            unsigned long long currentUSecSinceEpoch = QDateTime::currentMSecsSinceEpoch() * 1000;
+
             if (pValue) {
                 tagInfo.readerId = readerId;
                 tagInfo.antennaId = pTagReportData->getAntennaID()->getAntennaID();
-                if (firstTimeStamp == 0) {
-                    firstTimeStamp = pTagReportData->getFirstSeenTimestampUTC()->getMicroseconds();
-                }
-                tagInfo.timeStampUSec = (unsigned long long)pTagReportData->getFirstSeenTimestampUTC()->getMicroseconds() - firstTimeStamp;
+                tagInfo.timeStampUSec = (unsigned long long)pTagReportData->getFirstSeenTimestampUTC()->getMicroseconds();
                 for (int i=0; i<n; i++) {
                     QString s;
                     tagInfo.tagId.append(s.sprintf("%02x", pValue[i]));
                 }
-//                unsigned long long firstSeen = pTagReportData->getFirstSeenTimestampUTC()->getMicroseconds();
 
-                // Get current time in application sec
+                // If this is the first tag from the reader, compare timeStampUSec with msecFromEmpoch and determine an offset
+                // correction so that timeStamps from different readers will be synchronized (to 1 msec)
 
-                unsigned long long currentApplicationUSec = QDateTime::currentMSecsSinceEpoch();
-                tagInfo.firstSeenInApplicationUSec = currentApplicationUSec;
+                if (waitingForFirstTag) {
+                    timeStampCorrectionUSec = currentUSecSinceEpoch - tagInfo.timeStampUSec;
+                    waitingForFirstTag = false;
+                }
+                tagInfo.timeStampUSec += timeStampCorrectionUSec;
+
+                tagInfo.firstSeenInApplicationUSec = currentUSecSinceEpoch;
 
                 // Remove any tags from list more than 5 sec old
 
                 for (int i=currentTagsList.size()-1; i>=0; i--) {
-                    unsigned long long timeInList = currentApplicationUSec - currentTagsList[i].firstSeenInApplicationUSec;
-                    if (timeInList > maxAllowableTimeInListUSec) currentTagsList.removeAt(i);
+                    unsigned long long timeInListUSec = currentUSecSinceEpoch - currentTagsList[i].firstSeenInApplicationUSec;
+                    if (timeInListUSec > maxAllowableTimeInListUSec) currentTagsList.removeAt(i);
                 }
 
                 // If tag is not already in currentTagsList, add to list and emit signal

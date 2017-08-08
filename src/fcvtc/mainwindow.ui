@@ -56,7 +56,7 @@
      <widget class="QLineEdit" name="riderCountLineEdit">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-        <horstretch>10</horstretch>
+        <horstretch>5</horstretch>
         <verstretch>0</verstretch>
        </sizepolicy>
       </property>
@@ -85,7 +85,7 @@
      <widget class="QLineEdit" name="lapCountLineEdit">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-        <horstretch>10</horstretch>
+        <horstretch>5</horstretch>
         <verstretch>0</verstretch>
        </sizepolicy>
       </property>
@@ -119,15 +119,21 @@
        </sizepolicy>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>4</number>
       </property>
       <widget class="QWidget" name="ridersTab">
        <attribute name="title">
         <string>Riders</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout_3">
-        <item row="0" column="0">
+        <item row="1" column="0">
          <widget class="QTableWidget" name="activeRidersTableWidget">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+            <horstretch>10</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="font">
            <font>
             <pointsize>12</pointsize>
@@ -144,7 +150,7 @@
            <bool>true</bool>
           </property>
           <property name="sortingEnabled">
-           <bool>true</bool>
+           <bool>false</bool>
           </property>
           <property name="cornerButtonEnabled">
            <bool>false</bool>
@@ -170,7 +176,6 @@
            </property>
            <property name="font">
             <font>
-             <pointsize>12</pointsize>
              <weight>75</weight>
              <bold>true</bold>
             </font>
@@ -182,7 +187,6 @@
            </property>
            <property name="font">
             <font>
-             <pointsize>12</pointsize>
              <weight>75</weight>
              <bold>true</bold>
             </font>
@@ -194,7 +198,6 @@
            </property>
            <property name="font">
             <font>
-             <pointsize>12</pointsize>
              <weight>75</weight>
              <bold>true</bold>
             </font>
@@ -206,7 +209,6 @@
            </property>
            <property name="font">
             <font>
-             <pointsize>12</pointsize>
              <weight>75</weight>
              <bold>true</bold>
             </font>
@@ -214,16 +216,22 @@
           </column>
           <column>
            <property name="text">
-            <string>Ave Time</string>
+            <string>Avg Time</string>
            </property>
            <property name="font">
             <font>
-             <pointsize>12</pointsize>
              <weight>75</weight>
              <bold>true</bold>
             </font>
            </property>
           </column>
+         </widget>
+        </item>
+        <item row="0" column="0">
+         <widget class="QCheckBox" name="activeRidersTableSortedCheckBox">
+          <property name="text">
+           <string>Table Sorted</string>
+          </property>
          </widget>
         </item>
        </layout>
@@ -233,7 +241,7 @@
         <string>Laps</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout_2">
-        <item row="0" column="0">
+        <item row="1" column="0">
          <widget class="QTableWidget" name="lapsTableWidget">
           <property name="font">
            <font>
@@ -280,7 +288,17 @@
            </property>
            <property name="font">
             <font>
-             <pointsize>12</pointsize>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>LapCount</string>
+           </property>
+           <property name="font">
+            <font>
              <weight>75</weight>
              <bold>true</bold>
             </font>
@@ -292,7 +310,6 @@
            </property>
            <property name="font">
             <font>
-             <pointsize>12</pointsize>
              <weight>75</weight>
              <bold>true</bold>
             </font>
@@ -300,11 +317,10 @@
           </column>
           <column>
            <property name="text">
-            <string>TStamp</string>
+            <string>TimeStamp</string>
            </property>
            <property name="font">
             <font>
-             <pointsize>12</pointsize>
              <weight>75</weight>
              <bold>true</bold>
             </font>
@@ -316,7 +332,6 @@
            </property>
            <property name="font">
             <font>
-             <pointsize>12</pointsize>
              <weight>75</weight>
              <bold>true</bold>
             </font>
@@ -328,12 +343,18 @@
            </property>
            <property name="font">
             <font>
-             <pointsize>12</pointsize>
              <weight>75</weight>
              <bold>true</bold>
             </font>
            </property>
           </column>
+         </widget>
+        </item>
+        <item row="0" column="0">
+         <widget class="QCheckBox" name="lapsTableSortedCheckBox">
+          <property name="text">
+           <string>Table Sorted</string>
+          </property>
          </widget>
         </item>
        </layout>
@@ -368,129 +389,237 @@
        <attribute name="title">
         <string>Config</string>
        </attribute>
-       <widget class="QComboBox" name="antenna1ComboBox">
+       <layout class="QGridLayout" name="gridLayout_5">
+        <item row="3" column="5">
+         <widget class="QComboBox" name="antenna4ComboBox_2">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="5">
+         <widget class="QComboBox" name="antenna4ComboBox">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="0" colspan="6">
+         <widget class="QLabel" name="configLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>12</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Do not change these settings unless you know what you are doing.  Incorrect settings will prevent proper operation.</string>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="3">
+         <widget class="QComboBox" name="antenna2ComboBox">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="4">
+         <widget class="QComboBox" name="antenna3ComboBox">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QComboBox" name="comboBox">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="IPLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="text">
+           <string>Tag Reader IP</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="2">
+         <widget class="QLabel" name="antenna1Label">
+          <property name="text">
+           <string>Antenna 1 Power</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="3">
+         <widget class="QLabel" name="antenna2Label">
+          <property name="text">
+           <string>Antenna 2 Power</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="4">
+         <widget class="QLabel" name="antenna3Label">
+          <property name="text">
+           <string>Antenna 3 Power</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="5">
+         <widget class="QLabel" name="antenna4Label">
+          <property name="text">
+           <string>Antenna 4 Power</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLineEdit" name="lineEdit"/>
+        </item>
+        <item row="2" column="2">
+         <widget class="QComboBox" name="antenna1ComboBox">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="2">
+         <widget class="QComboBox" name="antenna1ComboBox_2">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="3">
+         <widget class="QComboBox" name="antenna2ComboBox_2">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="4">
+         <widget class="QComboBox" name="antenna3ComboBox_2">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QLabel" name="fuinctonLabel">
+          <property name="text">
+           <string>Function</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0">
+         <widget class="QLineEdit" name="lineEdit_2"/>
+        </item>
+        <item row="3" column="1">
+         <widget class="QComboBox" name="comboBox_2">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="0" colspan="6">
+         <spacer name="verticalSpacer">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tab">
+       <attribute name="title">
+        <string>DataBase</string>
+       </attribute>
+       <widget class="QLineEdit" name="deskTagIdLineEdit">
         <property name="geometry">
          <rect>
-          <x>100</x>
-          <y>84</y>
-          <width>161</width>
-          <height>31</height>
+          <x>40</x>
+          <y>40</y>
+          <width>179</width>
+          <height>23</height>
          </rect>
         </property>
        </widget>
-       <widget class="QLabel" name="antenna1Label">
+       <widget class="QLineEdit" name="deskTagNameLineEdit">
         <property name="geometry">
          <rect>
-          <x>100</x>
-          <y>60</y>
-          <width>161</width>
-          <height>21</height>
+          <x>240</x>
+          <y>40</y>
+          <width>391</width>
+          <height>23</height>
          </rect>
-        </property>
-        <property name="text">
-         <string>Antenna 1 Power</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignCenter</set>
-        </property>
-       </widget>
-       <widget class="QLabel" name="antenna2Label">
-        <property name="geometry">
-         <rect>
-          <x>270</x>
-          <y>60</y>
-          <width>161</width>
-          <height>21</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Antenna 2 Power</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignCenter</set>
-        </property>
-       </widget>
-       <widget class="QComboBox" name="antenna2ComboBox">
-        <property name="geometry">
-         <rect>
-          <x>270</x>
-          <y>84</y>
-          <width>161</width>
-          <height>31</height>
-         </rect>
-        </property>
-       </widget>
-       <widget class="QLabel" name="antenna3Label">
-        <property name="geometry">
-         <rect>
-          <x>440</x>
-          <y>60</y>
-          <width>161</width>
-          <height>21</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Antenna 3 Power</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignCenter</set>
-        </property>
-       </widget>
-       <widget class="QComboBox" name="antenna3ComboBox">
-        <property name="geometry">
-         <rect>
-          <x>440</x>
-          <y>84</y>
-          <width>161</width>
-          <height>31</height>
-         </rect>
-        </property>
-       </widget>
-       <widget class="QLabel" name="antenna4Label">
-        <property name="geometry">
-         <rect>
-          <x>610</x>
-          <y>60</y>
-          <width>161</width>
-          <height>21</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Antenna 4 Power</string>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignCenter</set>
-        </property>
-       </widget>
-       <widget class="QComboBox" name="antenna4ComboBox">
-        <property name="geometry">
-         <rect>
-          <x>610</x>
-          <y>84</y>
-          <width>161</width>
-          <height>31</height>
-         </rect>
-        </property>
-       </widget>
-       <widget class="QLabel" name="configLabel">
-        <property name="geometry">
-         <rect>
-          <x>90</x>
-          <y>10</y>
-          <width>681</width>
-          <height>41</height>
-         </rect>
-        </property>
-        <property name="font">
-         <font>
-          <pointsize>12</pointsize>
-         </font>
-        </property>
-        <property name="text">
-         <string>Do not change these settings unless you know what you are doing.  Incorrect settings will prevent proper operation.</string>
-        </property>
-        <property name="wordWrap">
-         <bool>true</bool>
         </property>
        </widget>
       </widget>

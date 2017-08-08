@@ -30,16 +30,20 @@ Q_DECLARE_METATYPE(CTagInfo)
 class CReader : public QObject {
 Q_OBJECT
 public:
-    CReader(QString hostName, int readerId);
+    enum antennaPositionType {track, desk};
+    CReader(QString hostName, antennaPositionType antennaPosition);
     ~CReader(void);
     int connectToReader(void);
     QList<int> *getTransmitPowerList(void);
     int setTransmitPower(int index);
     int setReaderConfiguration(void);
     int processReports(void);
+    int readerId;
+    antennaPositionType antennaPosition;
 private:
     QString hostName;
-    int readerId;
+    bool waitingForFirstTag;
+    long long timeStampCorrectionUSec;
     unsigned messageId;
     int checkConnectionStatus(void);
     int scrubConfiguration(void);

@@ -126,9 +126,11 @@ void CReader::onStarted(void) {
             emit connected(readerId);
             forever {
                 processReports();
+                // Check for errors and break out of loop if connection is lost
             }
         }
         if (pConnectionToReader) {
+            pConnectionToReader->closeConnectionToReader();
             delete pConnectionToReader;
             pConnectionToReader = NULL;
         }
@@ -654,7 +656,7 @@ int CReader::addROSpec(void) {
     LLRP::CROSpecStopTrigger *pROSpecStopTrigger = new LLRP::CROSpecStopTrigger();
     pROSpecStopTrigger->setROSpecStopTriggerType(LLRP::ROSpecStopTriggerType_Null);
 //    pROSpecStopTrigger->setROSpecStopTriggerType(LLRP::ROSpecStopTriggerType_Duration);
-    pROSpecStopTrigger->setDurationTriggerValue(0);     /* n/a */
+    pROSpecStopTrigger->setDurationTriggerValue(1000);     /* n/a */
 
     LLRP::CROBoundarySpec *pROBoundarySpec = new LLRP::CROBoundarySpec();
     pROBoundarySpec->setROSpecStartTrigger(pROSpecStartTrigger);
@@ -664,7 +666,7 @@ int CReader::addROSpec(void) {
     LLRP::CAISpecStopTrigger *pAISpecStopTrigger = new LLRP::CAISpecStopTrigger();
 //    pAISpecStopTrigger->setAISpecStopTriggerType(LLRP::AISpecStopTriggerType_Duration);
     pAISpecStopTrigger->setAISpecStopTriggerType(LLRP::AISpecStopTriggerType_Null);
-    pAISpecStopTrigger->setDurationTrigger(0);//1000
+//    pAISpecStopTrigger->setDurationTrigger(1000);//1000
 
     LLRP::CInventoryParameterSpec *pInventoryParameterSpec = new LLRP::CInventoryParameterSpec();
     pInventoryParameterSpec->setInventoryParameterSpecID(1234);
@@ -688,7 +690,7 @@ int CReader::addROSpec(void) {
     pTagReportContentSelector->setEnableFirstSeenTimestamp(TRUE);
     pTagReportContentSelector->setEnableLastSeenTimestamp(TRUE);
     pTagReportContentSelector->setEnableTagSeenCount(TRUE);
-    pTagReportContentSelector->setEnableAccessSpecID(FALSE);
+    pTagReportContentSelector->setEnableAccessSpecID(TRUE);
 
     LLRP::CROReportSpec *pROReportSpec = new LLRP::CROReportSpec();
     //pROReportSpec->setROReportTrigger(LLRP::ROReportTriggerType_None);
@@ -1129,14 +1131,7 @@ void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
     printf("Processing %d tags\n", newTagsList.size());
     fflush(stdout);
 
-//    // Loop through current tag list and remove any current tag that is more than maxAllowableTimeInListUSec old
-
-//    if (currentTagsList.size() > 0) for (int i=currentTagsList.size()-1; i>=0; i--) {
-//        unsigned long long timeInListUSec = currentUSecSinceEpoch - currentTagsList[i].timeStampUSec;
-//        if (timeInListUSec > maxAllowableTimeInListUSec) currentTagsList.removeAt(i);
-//    }
-
-    // Loop through current tag list again and remove any current tag that is not in new list
+    // Loop through current tag list and remove any current tag that is not in new list
 
     if (currentTagsList.size() > 0) for (int i=currentTagsList.size()-1; i>=0; i--) {
         bool inNewList = false;
@@ -1149,11 +1144,10 @@ void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
         if (!inNewList) {
             currentTagsList.removeAt(i);
         }
-
     }
 
 
-    // Loop through new tag list.  If tag is already in current list, rider is sitting in antenna zone. Do nothing.
+    // Loop through new tag list.  If tag is in current list, rider is sitting in antenna zone. Do nothing.
     // If tag is not in list, rider has just arrived in antenna zone so add to list and emit signal.
 
     for (int i=0; i<newTagsList.size(); i++) {
@@ -1168,17 +1162,9 @@ void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
             currentTagsList.append(newTagsList[i]);
             emit newTag(newTagsList[i]);
         }
+        printf("  %s\n", newTagsList[i].tagId.toLatin1().data());
+        fflush(stdout);
     }
-
-
-//    printf("After\n");
-//    fflush(stdout);
-//    for (int i=0; i<currentTagsList.size(); i++) {
-//        printf("%d: %s\n", i, currentTagsList[i].tagId.toLatin1().data());
-//        fflush(stdout);
-//    }
-
-
 }
 
 

@@ -11,6 +11,7 @@
 #include <QTextCursor>
 #include <QTableView>
 #include <QToolBox>
+#include <QComboBox>
 
 #include <stdio.h>
 #include <unistd.h>
@@ -58,9 +59,9 @@ MainWindow::MainWindow(QWidget *parent) :
 
     // Create list of tag readers.  Leave IP empty for test mode.
 
-    readerList.append(new CReader("", CReader::track));
-    readerList.append(new CReader("", CReader::desk));
-    //readerList.append(new CReader("192.168.1.98", CReader::track));
+//    readerList.append(new CReader("", CReader::track));
+//    readerList.append(new CReader("", CReader::desk));
+    readerList.append(new CReader("192.168.1.98", CReader::track));
 
 
     // Initialize member variables
@@ -80,7 +81,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     // Configure gui
 
-    ui->trackNameLabel->setText(trackName + " LLRPLaps");
+    ui->trackNameLabel->setText("LLRPLaps: " + trackName);
     setWindowTitle("LLRPLaps: " + trackName);
     ui->lapsTableSortedCheckBox->setCheckable(false);
     ui->activeRidersTableSortedCheckBox->setCheckable(false);
@@ -147,9 +148,11 @@ MainWindow::MainWindow(QWidget *parent) :
 
     ui->antenna1ComboBox->setEnabled(false);
     ui->antenna2ComboBox->setEnabled(false);
-    ui->antenna3ComboBox->setEnabled(false);
-    ui->antenna4ComboBox->setEnabled(false);
+   // ui->antenna3ComboBox->setEnabled(false);
+   // ui->antenna4ComboBox->setEnabled(false);
 
+
+    connect(ui->antenna1ComboBox, SIGNAL(activated(int)), this, SLOT(onAntenna1ComboBoxActivated(int)));
 
     // Start timer that will purge old riders from activeRidersTable
 
@@ -164,13 +167,19 @@ MainWindow::MainWindow(QWidget *parent) :
 
 
 
-MainWindow::~MainWindow()
-{
+MainWindow::~MainWindow() {
     delete ui;
     for (int i=0; i<readerList.size(); i++) {
         delete readerList[i];
     }
     readerList.clear();
+}
+
+
+
+void MainWindow::onAntenna1ComboBoxActivated(int index) {
+    printf("%d\n", index);
+    fflush(stdout);
 }
 
 
@@ -248,12 +257,18 @@ void MainWindow::onReaderConnected(int readerId) {
     ui->tabWidget->setCurrentIndex(0);
     onNewLogMessage(s.sprintf("Connected to reader %d", readerId));
 
-    // Populate comboBox with available power settings for each reader (WIP)
+    // Populate comboBox with available power settings for each reader (WIP).
+    // Reader has been configured to select lowest power setting when connected.
 
-    for (int i=0; i<readerList[readerId-1]->getTransmitPowerList()->size(); i++) {
-        printf("INFO: Reader %d Power index %d, power %d\n", readerId, i, readerList[readerId-1]->getTransmitPowerList()->at(i));
-        fflush(stdout);
+    QList<int> *transmitPowerList = readerList[readerId-1]->getTransmitPowerList();
+    ui->antenna1ComboBox->clear();
+    if (transmitPowerList) for (int i=0; i<transmitPowerList->size(); i++) {
+        ui->antenna1ComboBox->addItem(s.setNum(transmitPowerList->at(i)));
     }
+
+
+    ui->antenna1ComboBox->setEnabled(true);
+
 
     ui->lapsTableWidget->setEnabled(true);
     ui->activeRidersTableWidget->setEnabled(true);

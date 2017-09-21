@@ -1,5 +1,10 @@
 // creader.h
 //
+// IIPJ R1000 Reader defaults
+// IP: 192.168.1.98
+// username: root
+// password: impinj
+//
 
 #ifndef CREADER_H
 #define CREADER_H
@@ -35,12 +40,13 @@ public:
     ~CReader(void);
     int connectToReader(void);
     QList<int> *getTransmitPowerList(void);
-    int setTransmitPower(int index);
+    //int setTransmitPower(int index);
     int setReaderConfiguration(void);
     int processReports(void);
     int readerId;
     antennaPositionType antennaPosition;
 private:
+    QList<CTagInfo> currentTagsList;    // list of tags currently seen by reader
     QString hostName;
     bool waitingForFirstTag;
     long long timeStampCorrectionUSec;
@@ -52,21 +58,21 @@ private:
     int addROSpec(void);
     int enableROSpec(void);
     int startROSpec(void);
-    LLRP::CConnection *pConnectionToReader;
-    LLRP::CTypeRegistry *pTypeRegistry;
-    LLRP::CMessage *recvMessage(int nMaxMS);
     void printXMLMessage(LLRP::CMessage *pMessage);
     void handleReaderEventNotification(LLRP::CReaderEventNotificationData *pNtfData);
     void handleAntennaEvent(LLRP::CAntennaEvent *pAntennaEvent);
     void handleReaderExceptionEvent(LLRP::CReaderExceptionEvent *pReaderExceptionEvent);
     int checkLLRPStatus(LLRP::CLLRPStatus *pLLRPStatus, char *pWhatStr);
-    LLRP::CMessage *transact (LLRP::CMessage *pSendMsg);
     int sendMessage(LLRP::CMessage *pSendMsg);
     void processTagList(LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT);
     int getTransmitPowerCapabilities(void);
     QList<int> transmitPowerList;
     bool simulateReaderMode;
     unsigned long long maxAllowableTimeInListUSec;
+    LLRP::CConnection *pConnectionToReader;
+    LLRP::CTypeRegistry *pTypeRegistry;
+    LLRP::CMessage *recvMessage(int nMaxMS);
+    LLRP::CMessage *transact (LLRP::CMessage *pSendMsg);
 signals:
     void connected(int readerId);
     void newTag(CTagInfo);

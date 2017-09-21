@@ -45,7 +45,7 @@ CReader::CReader(QString hostName, CReader::antennaPositionType antennaPosition)
     pTypeRegistry = NULL;
     qRegisterMetaType<CTagInfo>();      // required to emit signal with CTagInfo
 
-    maxAllowableTimeInListUSec = 5000000;   // Tags seen in each report this long are considered same tag
+//    maxAllowableTimeInListUSec = 5000000;   // Tags seen in each report this long are considered same tag
 }
 
 
@@ -127,6 +127,14 @@ void CReader::onStarted(void) {
             forever {
                 processReports();
             }
+        }
+        if (pConnectionToReader) {
+            delete pConnectionToReader;
+            pConnectionToReader = NULL;
+        }
+        if (pTypeRegistry) {
+            delete pTypeRegistry;
+            pTypeRegistry = NULL;
         }
     }
 }
@@ -679,7 +687,7 @@ int CReader::addROSpec(void) {
     pTagReportContentSelector->setEnablePeakRSSI(FALSE);
     pTagReportContentSelector->setEnableFirstSeenTimestamp(TRUE);
     pTagReportContentSelector->setEnableLastSeenTimestamp(TRUE);
-    pTagReportContentSelector->setEnableTagSeenCount(FALSE);
+    pTagReportContentSelector->setEnableTagSeenCount(TRUE);
     pTagReportContentSelector->setEnableAccessSpecID(FALSE);
 
     LLRP::CROReportSpec *pROReportSpec = new LLRP::CROReportSpec();
@@ -968,11 +976,13 @@ int CReader::processReports(void) {
     LLRP::CMessage *pMessage = NULL;
     const LLRP::CTypeDescriptor *pType = NULL;
 
-    // Wait for a message. The report
-    // should occur within 5 seconds. If no message, just return.
+    // Wait for a message. The report should occur within 0.5 seconds when tags are seen.
+    // If not, timeout and clear currentTagsList.
 
-    pMessage = recvMessage(500);
+    pMessage = recvMessage(1000);
     if (!pMessage) {
+        currentTagsList.clear();
+        //processTagList(NULL);
         return 0;
     }
 
@@ -1039,9 +1049,13 @@ int CReader::processReports(void) {
 
 void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
     std::list<LLRP::CTagReportData *>::iterator Cur;
-    static QList<CTagInfo> currentTagsList;
 
-    for (Cur = pRO_ACCESS_REPORT->beginTagReportData(); Cur != pRO_ACCESS_REPORT->endTagReportData(); Cur++) {
+    // Get current local time in application msec
+
+    unsigned long long currentUSecSinceEpoch = QDateTime::currentMSecsSinceEpoch() * 1000;
+    QList<CTagInfo> newTagsList;
+
+    if (pRO_ACCESS_REPORT) for (Cur = pRO_ACCESS_REPORT->beginTagReportData(); Cur != pRO_ACCESS_REPORT->endTagReportData(); Cur++) {
         LLRP::CTagReportData *pTagReportData = *Cur;
         const LLRP::CTypeDescriptor *pType;
         LLRP::CParameter *pEPCParameter = pTagReportData->getEPCParameter();
@@ -1076,10 +1090,6 @@ void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
                 n = (my_u1v.m_nBit + 7u) / 8u;
             }
 
-            // Get current local time in application msec
-
-            unsigned long long currentUSecSinceEpoch = QDateTime::currentMSecsSinceEpoch() * 1000;
-
             if (pValue) {
                 tagInfo.readerId = readerId;
                 tagInfo.antennaId = pTagReportData->getAntennaID()->getAntennaID();
@@ -1100,26 +1110,10 @@ void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
 
                 tagInfo.firstSeenInApplicationUSec = currentUSecSinceEpoch;
 
-                // Remove any tags from list more than 5 sec old
 
-                for (int i=currentTagsList.size()-1; i>=0; i--) {
-                    unsigned long long timeInListUSec = currentUSecSinceEpoch - currentTagsList[i].firstSeenInApplicationUSec;
-                    if (timeInListUSec > maxAllowableTimeInListUSec) currentTagsList.removeAt(i);
-                }
+                // Add to newTagsList
 
-                // If tag is not already in currentTagsList, add to list and emit signal
-
-                bool inList = false;
-                for (int i=0; i<currentTagsList.size(); i++) {
-                    if (tagInfo.tagId == currentTagsList[i].tagId) {
-                        inList = true;
-                    }
-                }
-                if (!inList) {
-                    currentTagsList.append(tagInfo);
-                    emit newTag(tagInfo);
-                }
-
+                newTagsList.append(tagInfo);
             }
             else {
                 emit newLogMessage(QString("Unknown-epc-data-type in tag"));
@@ -1129,6 +1123,62 @@ void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
             emit newLogMessage(QString("Missing-epc-data in tag"));
         }
     }
+
+    // newTagsList is a list of tags currently in antenna zone
+
+    printf("Processing %d tags\n", newTagsList.size());
+    fflush(stdout);
+
+//    // Loop through current tag list and remove any current tag that is more than maxAllowableTimeInListUSec old
+
+//    if (currentTagsList.size() > 0) for (int i=currentTagsList.size()-1; i>=0; i--) {
+//        unsigned long long timeInListUSec = currentUSecSinceEpoch - currentTagsList[i].timeStampUSec;
+//        if (timeInListUSec > maxAllowableTimeInListUSec) currentTagsList.removeAt(i);
+//    }
+
+    // Loop through current tag list again and remove any current tag that is not in new list
+
+    if (currentTagsList.size() > 0) for (int i=currentTagsList.size()-1; i>=0; i--) {
+        bool inNewList = false;
+        for (int j=0; j<newTagsList.size(); j++) {
+            if (currentTagsList[i].tagId == newTagsList[j].tagId) {
+                inNewList = true;
+                break;
+            }
+        }
+        if (!inNewList) {
+            currentTagsList.removeAt(i);
+        }
+
+    }
+
+
+    // Loop through new tag list.  If tag is already in current list, rider is sitting in antenna zone. Do nothing.
+    // If tag is not in list, rider has just arrived in antenna zone so add to list and emit signal.
+
+    for (int i=0; i<newTagsList.size(); i++) {
+        bool inList = false;
+        for (int j=0; j<currentTagsList.size(); j++) {
+            if (newTagsList[i].tagId == currentTagsList[j].tagId) {
+                inList = true;
+                break;
+            }
+        }
+        if (!inList) {
+            currentTagsList.append(newTagsList[i]);
+            emit newTag(newTagsList[i]);
+        }
+    }
+
+
+//    printf("After\n");
+//    fflush(stdout);
+//    for (int i=0; i<currentTagsList.size(); i++) {
+//        printf("%d: %s\n", i, currentTagsList[i].tagId.toLatin1().data());
+//        fflush(stdout);
+//    }
+
+
 }
 
 
@@ -1700,11 +1750,12 @@ int CReader::getTransmitPowerCapabilities(void) {
 // Use xml file to set default reader configuration and then make some mods
 //
 int CReader::setReaderConfiguration(void) {
-    LLRP::CGET_READER_CONFIG *pGetReaderCmd;
+//    LLRP::CGET_READER_CONFIG *pGetReaderCmd;
     LLRP::CMessage *pRspMsg;
-    LLRP::CGET_READER_CONFIG_RESPONSE *pGetReaderRsp;
-    std::list<LLRP::CAntennaConfiguration*>::iterator pAntCfg;
+//    LLRP::CGET_READER_CONFIG_RESPONSE *pGetReaderRsp;
+//    std::list<LLRP::CAntennaConfiguration*>::iterator pAntCfg;
 
+/*
     // Compose the command message
 
     pGetReaderCmd = new LLRP::CGET_READER_CONFIG();
@@ -1767,7 +1818,7 @@ int CReader::setReaderConfiguration(void) {
 //                printf("INFO: Reader hopTableID %u, ChannelIndex %u\n", hopTableID, channelIndex);
 //    }
 
-
+*/
 
 
     LLRP::CMessage *pCmdMsg;
@@ -1779,7 +1830,7 @@ int CReader::setReaderConfiguration(void) {
 
     // Build a decoder to extract the message from XML
 
-    pDecoder = new LLRP::CXMLTextDecoder(pTypeRegistry, "../fcvtc/setReaderConfig.xml");
+    pDecoder = new LLRP::CXMLTextDecoder(pTypeRegistry, "../fcvtc/setReaderConfig2.xml");
     if (NULL == pDecoder) {
         return -1;
     }
@@ -1821,10 +1872,15 @@ int CReader::setReaderConfiguration(void) {
     // Set the max power that we retreived from the capabilities
     // and the hopTableID and Channel index we got from the config
 
-    unsigned powerLevelIndex = 1;         // 1 = lowest power value
-    pRfTx->setChannelIndex(channelIndex);
-    pRfTx->setHopTableID(hopTableID);
-    pRfTx->setTransmitPower(powerLevelIndex);
+//    printf("Number of power settings: %d\n", transmitPowerList.size());
+//    fflush(stdout);
+//    unsigned powerLevelIndex = transmitPowerIndex;         // 1 = lowest power value
+////    if (powerLevelIndex < 1) powerLevelIndex = 1;
+////    if (powerLevelIndex > transmitPowerList.size())
+//        powerLevelIndex = transmitPowerList.size();
+//    pRfTx->setChannelIndex(channelIndex);
+//    pRfTx->setHopTableID(hopTableID);
+//    pRfTx->setTransmitPower(powerLevelIndex);
 
     // Send the message, expect a certain
 

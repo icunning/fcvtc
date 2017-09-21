@@ -6,7 +6,7 @@
 		<RFTransmitter>
 			<HopTableID>1</HopTableID>
 			<ChannelIndex>0</ChannelIndex>
-			<TransmitPower>1</TransmitPower>
+			<TransmitPower>71</TransmitPower>
 		</RFTransmitter>
 	</AntennaConfiguration>
 	<AntennaConfiguration>
@@ -14,7 +14,7 @@
 		<RFTransmitter>
 			<HopTableID>1</HopTableID>
 			<ChannelIndex>0</ChannelIndex>
-			<TransmitPower>1</TransmitPower>
+			<TransmitPower>71</TransmitPower>
 		</RFTransmitter>
 	</AntennaConfiguration>
 	<AntennaConfiguration>
@@ -22,7 +22,7 @@
 		<RFTransmitter>
 			<HopTableID>1</HopTableID>
 			<ChannelIndex>0</ChannelIndex>
-			<TransmitPower>1</TransmitPower>
+			<TransmitPower>71</TransmitPower>
 		</RFTransmitter>
 	</AntennaConfiguration>
 	<AntennaConfiguration>
@@ -30,7 +30,7 @@
 		<RFTransmitter>
 			<HopTableID>1</HopTableID>
 			<ChannelIndex>0</ChannelIndex>
-			<TransmitPower>1</TransmitPower>
+			<TransmitPower>71</TransmitPower>
 		</RFTransmitter>
 	</AntennaConfiguration>
 	<ROReportSpec>
@@ -45,7 +45,7 @@
 			<EnablePeakRSSI>true</EnablePeakRSSI>
 			<EnableFirstSeenTimestamp>true</EnableFirstSeenTimestamp>
 			<EnableLastSeenTimestamp>true</EnableLastSeenTimestamp>
-			<EnableTagSeenCount>false</EnableTagSeenCount>
+			<EnableTagSeenCount>true</EnableTagSeenCount>
 			<EnableAccessSpecID>false</EnableAccessSpecID>
 			<C1G2EPCMemorySelector>
 				<EnableCRC>false</EnableCRC>

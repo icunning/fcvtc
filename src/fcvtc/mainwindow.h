@@ -14,6 +14,7 @@
 #include <QPushButton>
 #include <QTableWidgetItem>
 
+
 #include "creader.h"
 
 
@@ -71,6 +72,7 @@ private slots:
     void onActiveRidersTableHorizontalHeaderSectionClicked(int);
     void onLapsTableSortedCheckBoxClicked(bool);
     void onActiveRidersTableSortedCheckBoxClicked(bool);
+    void onAntenna1ComboBoxActivated(int);
 };
 
 #endif // MAINWINDOW_H

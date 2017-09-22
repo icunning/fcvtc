@@ -656,7 +656,7 @@ int CReader::addROSpec(void) {
     LLRP::CROSpecStopTrigger *pROSpecStopTrigger = new LLRP::CROSpecStopTrigger();
     pROSpecStopTrigger->setROSpecStopTriggerType(LLRP::ROSpecStopTriggerType_Null);
 //    pROSpecStopTrigger->setROSpecStopTriggerType(LLRP::ROSpecStopTriggerType_Duration);
-    pROSpecStopTrigger->setDurationTriggerValue(1000);     /* n/a */
+    pROSpecStopTrigger->setDurationTriggerValue(0);     /* n/a */
 
     LLRP::CROBoundarySpec *pROBoundarySpec = new LLRP::CROBoundarySpec();
     pROBoundarySpec->setROSpecStartTrigger(pROSpecStartTrigger);
@@ -978,13 +978,13 @@ int CReader::processReports(void) {
     LLRP::CMessage *pMessage = NULL;
     const LLRP::CTypeDescriptor *pType = NULL;
 
-    // Wait for a message. The report should occur within 0.5 seconds when tags are seen.
-    // If not, timeout and clear currentTagsList.
+    // Wait for a message. The report should occur within 1 seconds when tags are in antenna zone.
+    // If not, timeout and clear currentTagsList.  Don't make the timeout too short, because
+    // if the reader report is delayed for any reason (
 
-    pMessage = recvMessage(1000);
+    pMessage = recvMessage(5000);
     if (!pMessage) {
-        currentTagsList.clear();
-        //processTagList(NULL);
+        processTagList(NULL);
         return 0;
     }
 
@@ -1051,6 +1051,7 @@ int CReader::processReports(void) {
 
 void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
     std::list<LLRP::CTagReportData *>::iterator Cur;
+    static int count = 0;
 
     // Get current local time in application msec
 
@@ -1128,7 +1129,8 @@ void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
 
     // newTagsList is a list of tags currently in antenna zone
 
-    printf("Processing %d tags\n", newTagsList.size());
+    count++;
+    printf("%d: Processing %d tags\n", count, newTagsList.size());
     fflush(stdout);
 
     // Loop through current tag list and remove any current tag that is not in new list
@@ -1816,7 +1818,7 @@ int CReader::setReaderConfiguration(void) {
 
     // Build a decoder to extract the message from XML
 
-    pDecoder = new LLRP::CXMLTextDecoder(pTypeRegistry, "../fcvtc/setReaderConfig2.xml");
+    pDecoder = new LLRP::CXMLTextDecoder(pTypeRegistry, "../fcvtc/readerConfig.xml");
     if (NULL == pDecoder) {
         return -1;
     }
@@ -1841,19 +1843,19 @@ int CReader::setReaderConfiguration(void) {
     // at this point,we would be ready to send the message, but we need
     // to make a change to the transmit power for each enabled antenna.
 
-    Cur = pSetReaderCmd->beginAntennaConfiguration();
-    Cur++;
+//    Cur = pSetReaderCmd->beginAntennaConfiguration();
+//    Cur++;
 
-    LLRP::CRFTransmitter *pRfTx = (*Cur)->getRFTransmitter();
+//    LLRP::CRFTransmitter *pRfTx = (*Cur)->getRFTransmitter();
 
     // we already have this element in our sample XML file, but
     // we check here to create one if it doesn’t exist to show
     // a more general usage
 
-    if(NULL == pRfTx) {
-        pRfTx = new LLRP::CRFTransmitter();
-        (*Cur)->setRFTransmitter(pRfTx);
-    }
+//    if(NULL == pRfTx) {
+//        pRfTx = new LLRP::CRFTransmitter();
+//        (*Cur)->setRFTransmitter(pRfTx);
+//    }
 
     // Set the max power that we retreived from the capabilities
     // and the hopTableID and Channel index we got from the config

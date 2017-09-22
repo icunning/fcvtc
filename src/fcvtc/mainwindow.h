@@ -50,6 +50,7 @@ private:
     QTimer clockTimer;
     QTimer purgeActiveRidersListTimer;
     QList<CReader *> readerList;
+    QList<QThread *> readerThreadList;
     QList<rider_t> activeRidersList;
     QMutex lapsTableMutex;
     QMutex activeRidersTableMutex;

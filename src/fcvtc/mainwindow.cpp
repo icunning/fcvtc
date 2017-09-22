@@ -137,9 +137,9 @@ MainWindow::MainWindow(QWidget *parent) :
 
         QThread *readerThread = new QThread(this);
         readerList[i]->moveToThread(readerThread);
+        readerThreadList.append(readerThread);
         connect(readerThread, SIGNAL(started(void)), readerList[i], SLOT(onStarted(void)));
-        //connect(reader, SIGNAL(finished()), reader, SLOT(deleteLater()));
-        //connect(readerThread, SIGNAL(finished(void)), readerThread, SLOT(deleteLater(void)));
+        connect(readerThread, SIGNAL(finished(void)), readerThread, SLOT(deleteLater(void)));
         readerThread->start();
     }
 
@@ -168,11 +168,13 @@ MainWindow::MainWindow(QWidget *parent) :
 
 
 MainWindow::~MainWindow() {
-    delete ui;
-    for (int i=0; i<readerList.size(); i++) {
+    for (int i=0; i<readerThreadList.size(); i++) {
+//        readerThreadList[i]->requestInterruption();
+//        readerThreadList[i]->wait();
         delete readerList[i];
     }
-    readerList.clear();
+//    readerThreadList.clear();
+    delete ui;
 }
 
 
@@ -370,7 +372,7 @@ void MainWindow::onNewTag(CTagInfo tagInfo) {
     }
     else {
 
-        // New rider, so get from dBase
+        // New rider, so get from dBase (todo)
 
         bool ok;
         unsigned long long id = tagInfo.tagId.toULongLong(&ok, 16);
@@ -626,14 +628,5 @@ void MainWindow::onNewTag(CTagInfo tagInfo) {
 
 
 void MainWindow::onNewLogMessage(QString s) {
-    QPlainTextEdit *m = ui->messagesPlainTextEdit;
-    bool scrollToBottomRequired = false;
-    if (m->verticalScrollBar()->sliderPosition() == m->verticalScrollBar()->maximum()) {
-        scrollToBottomRequired = true;
-    }
-    QString s2 = QDateTime::currentDateTime().toString("yyyy-MM-dd_hh:mm:ss") + " " + s;
-    m->appendPlainText(s2);
-    if (scrollToBottomRequired) {
-        m->verticalScrollBar()->setValue(m->verticalScrollBar()->maximum());
-    }
+    ui->messagesPlainTextEdit->appendPlainText(QDateTime::currentDateTime().toString("yyyy-MM-dd_hh:mm:ss ") + s);
 }

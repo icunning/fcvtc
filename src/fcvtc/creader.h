@@ -1,3 +1,21 @@
+//********************************************************************
+//      created:        2017/07/15
+//      filename:       CREADER.CPP
+//
+//  (C) Copyright 2017 Forestcity Velodrome
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//*********************************************************************
 // creader.h
 //
 // IIPJ R1000 Reader defaults
@@ -9,13 +27,15 @@
 #ifndef CREADER_H
 #define CREADER_H
 
+#include <cstdint>
+#include <memory>
 
 #include <QObject>
 #include <QString>
 #include <QList>
+#include <QThread>
 
-#include "main.h"
-#include "ltkcpp.h"
+#include <ltkcpp.h>
 
 
 class CTagInfo {
@@ -24,27 +44,30 @@ public:
     void clear(void);
     int readerId;
     int antennaId;
-    QString tagId;
+    QByteArray tagId;
     unsigned long long timeStampUSec;
     unsigned long long firstSeenInApplicationUSec;
 };
+
 Q_DECLARE_METATYPE(CTagInfo)
 
 
-
-class CReader : public QObject {
-Q_OBJECT
+class CReader : public QObject //QThread
+{
+    Q_OBJECT
 public:
     enum antennaPositionType {track, desk};
-    CReader(QString hostName, antennaPositionType antennaPosition);
-    ~CReader(void);
+    explicit CReader(QString hostName, int readerId, antennaPositionType antennaPosition);
+    virtual ~CReader(void);
     int connectToReader(void);
     QList<int> *getTransmitPowerList(void);
     //int setTransmitPower(int index);
+    int setTrackLength(int antenna);    // set length of track at height of specified antenna
     int setReaderConfiguration(void);
     int processReports(void);
-    int readerId;
     antennaPositionType antennaPosition;
+    QThread *thread;
+    int readerId;
 private:
     QList<CTagInfo> currentTagsList;    // list of tags currently seen by reader
     QString hostName;
@@ -69,12 +92,12 @@ private:
     QList<int> transmitPowerList;
     bool simulateReaderMode;
     unsigned long long maxAllowableTimeInListUSec;
-    LLRP::CConnection *pConnectionToReader;
-    LLRP::CTypeRegistry *pTypeRegistry;
+    LLRP::CConnection *connectionToReader;
+    LLRP::CTypeRegistry *typeRegistry;
     LLRP::CMessage *recvMessage(int nMaxMS);
-    LLRP::CMessage *transact (LLRP::CMessage *pSendMsg);
+    LLRP::CMessage *transact (LLRP::CMessage *sendMsg);
 signals:
-    void connected(int readerId);
+    void connected(void);
     void newTag(CTagInfo);
     void newLogMessage(QString);
     void error(QString);

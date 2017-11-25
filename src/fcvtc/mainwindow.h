@@ -13,28 +13,18 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QTableWidgetItem>
+#include <QMessageBox>
 
 
 #include "creader.h"
+#include "cdbase.h"
+
+
 
 
 namespace Ui {
 class MainWindow;
 }
-
-
-// rider_t is a structure used to keep all information available for each rider.
-//
-struct rider_t {
-    QString tagId;          // from reader
-    QString name;           // from dBase if available
-    unsigned long long previousTimeStampUSec;   // timestamp from reader, updated with each lap
-    int lapCount;
-    float lapTimeSec;
-    float bestLapTimeSec;
-    float lapTimeSumSec;
-};
-
 
 
 
@@ -47,26 +37,41 @@ public:
     ~MainWindow();
 private:
     Ui::MainWindow *ui;
+    CDbase dbase;
     QTimer clockTimer;
     QTimer purgeActiveRidersListTimer;
-    QList<CReader *> readerList;
+    CReader *trackReader;
+    CReader *deskReader;
     QList<QThread *> readerThreadList;
-    QList<rider_t> activeRidersList;
+    QList<CRider> activeRidersList;
     QMutex lapsTableMutex;
     QMutex activeRidersTableMutex;
-    long long lapsTableTimeStampMaxAgeSec;
-    long long activeRidersTableTimeStampMaxAgeSec;
-    int activeRidersTablePurgeIntervalSec;
+    long long tablePurgeIntervalSec;
     float maxAcceptableLapSec;        // max time allowable for lap.  If greater, rider must have left and return to track
     float blackLineDistancem;
+    float blueLineDistancem;
     bool lapsTableSortingEnabled;
     bool activeRidersTableSortingEnabled;
     int lapsTableMaxSizeWithSort;
+    void loadNamesTable(void);
+    void guiCritical(QString);
+    void guiInformation(QString);
+    QMessageBox::StandardButtons guiQuestion(QString s, QMessageBox::StandardButtons b=QMessageBox::Ok);
+    float lapSpeed(float lapSec, float lapM);
+    QList<float> trackLengthM;      // length of track (1 lap) at height of each antenna
+    QSettings settings;
+public slots:
+    void onDbaseSearchPushButtonClicked(void);
+    void onDbaseAddPushButtonClicked(void);
+    void onDbaseClearPushButtonClicked(void);
+    void onDbaseRemovePushButtonClicked(void);
+    void onDbaseUpdatePushButtonClicked(void);
+    void onDbaseReadPushButtonClicked(void);
 private slots:
-    void onReaderConnected(int readerId);
+    void onReaderConnected(void);
     void onClockTimerTimeout(void);
     void onPurgeActiveRidersList(void);
-    void onNewTag(CTagInfo);
+    void onNewTrackTag(CTagInfo);
     void onNewDeskTag(CTagInfo);
     void onNewLogMessage(QString);
     void onLapsTableHorizontalHeaderSectionClicked(int);
@@ -74,6 +79,8 @@ private slots:
     void onLapsTableSortedCheckBoxClicked(bool);
     void onActiveRidersTableSortedCheckBoxClicked(bool);
     void onAntenna1ComboBoxActivated(int);
+    void onApplySettingsPushButtonClicked(void);
+    void onSaveSettingsPushButtonClicked(void);
 };
 
 #endif // MAINWINDOW_H

@@ -8,6 +8,7 @@
 
 #include <QList>
 #include <QDateTime>
+#include <QDebug>
 
 #include <unistd.h>
 
@@ -33,7 +34,7 @@ void CTagInfo::clear(void) {
 
 // **********************************************************************************************
 
-CReader::CReader(QString hostName, CReader::antennaPositionType antennaPosition) {
+CReader::CReader(QString hostName, int readerId, CReader::antennaPositionType antennaPosition) {
     this->hostName = hostName;
     this->readerId = readerId;
     this->antennaPosition = antennaPosition;
@@ -41,11 +42,10 @@ CReader::CReader(QString hostName, CReader::antennaPositionType antennaPosition)
     simulateReaderMode = hostName.isEmpty();
     waitingForFirstTag = true;
     timeStampCorrectionUSec = 0;
-    pConnectionToReader = NULL;
-    pTypeRegistry = NULL;
+    connectionToReader = NULL;
+    typeRegistry = NULL;
     qRegisterMetaType<CTagInfo>();      // required to emit signal with CTagInfo
-
-//    maxAllowableTimeInListUSec = 5000000;   // Tags seen in each report this long are considered same tag
+    thread = NULL;
 }
 
 
@@ -61,25 +61,26 @@ CReader::~CReader(void) {
 
     emit newLogMessage(s.sprintf("INFO: Clean up reader configuration..."));
 
-    scrubConfiguration();
+    try {
+        scrubConfiguration();
 
-    /*
-     * Close the connection and release its resources
-     */
+        // Close the connection and release its resources
 
-    if (pConnectionToReader) {
-        pConnectionToReader->closeConnectionToReader();
-        delete pConnectionToReader;
-        pConnectionToReader = NULL;
+        if (connectionToReader) {
+            connectionToReader->closeConnectionToReader();
+            delete connectionToReader;
+            connectionToReader = NULL;
+        }
+
+        // Done with the registry
+
+        if (typeRegistry) {
+            delete typeRegistry;
+            typeRegistry = NULL;
+        }
     }
-
-    /*
-     * Done with the registry.
-     */
-
-    if (pTypeRegistry) {
-        delete pTypeRegistry;
-        pTypeRegistry = NULL;
+    catch (const std::exception &e) {
+        // Log exception when logging is implemented
     }
 
     emit newLogMessage(s.sprintf("INFO: Finished"));
@@ -95,26 +96,42 @@ void CReader::onStarted(void) {
 
     if (simulateReaderMode) {
         emit newLogMessage("Simulation mode to simulate reader signals without being connected to reader");
-        emit connected(readerId);
+        emit connected();
         tag.readerId = readerId;
+        int averageIntervalMSec = 1000; // average interval between tags seen
         int count = 0;
+
+        switch (antennaPosition) {
+        case track:
+            break;
+        case desk:
+            averageIntervalMSec = 20000;
+            break;
+        }
+
         forever {
-            for (int i=0; i<1000; i++) {
+            for (int i=0; i<50; i++) {
                 count++;
-                tag.antennaId = (rand() % 3) + 1;   // random antennaId between 1 and 3
+                tag.antennaId = (rand() % 4) + 1;   // random antennaId between 1 and 4
                 tag.timeStampUSec = QDateTime::currentMSecsSinceEpoch() * 1000;
-                int id = (rand() % 16) + 1;      // random number between 1 and 16
-                tag.tagId = s.sprintf("2016000000%02x", id);
+                int id = (rand() % 32) + 1;      // random number between 1 and 32
+                tag.tagId = s.sprintf("2016000000%02x", id).toLatin1();
+                int intervalMSec = rand() % averageIntervalMSec + 1;     // next interval between 1 and 2000 msec
+                usleep(intervalMSec * 1000);
                 emit newTag(tag);
                 if (id == 2) {
-                    usleep(100000);
+                    usleep(1000);
                     tag.timeStampUSec = QDateTime::currentMSecsSinceEpoch() * 1000;
                     emit newTag(tag);
                 }
-                int intervalMSec = rand() % 2000 + 1;     // next interval between 0 and 2000 msec
-                usleep(intervalMSec * 1000);
+
+                if (thread && thread->isInterruptionRequested()) {
+                    thread->quit();
+                    return;
+                }
             }
-            sleep(600);
+            sleep(10);
+
         }
     }
 
@@ -123,20 +140,26 @@ void CReader::onStarted(void) {
     forever {
         int rc = connectToReader();
         if (rc == 0) {
-            emit connected(readerId);
+            emit connected();
             forever {
                 processReports();
+
                 // Check for errors and break out of loop if connection is lost
+
+                if (thread && thread->isInterruptionRequested()) {
+                    thread->quit();
+                    return;
+                }
             }
         }
-        if (pConnectionToReader) {
-            pConnectionToReader->closeConnectionToReader();
-            delete pConnectionToReader;
-            pConnectionToReader = NULL;
+        if (connectionToReader) {
+            connectionToReader->closeConnectionToReader();
+            delete connectionToReader;
+            connectionToReader = NULL;
         }
-        if (pTypeRegistry) {
-            delete pTypeRegistry;
-            pTypeRegistry = NULL;
+        if (typeRegistry) {
+            delete typeRegistry;
+            typeRegistry = NULL;
         }
     }
 }
@@ -152,8 +175,8 @@ int CReader::connectToReader(void) {
      * by the connection to decode.
      */
 
-    pTypeRegistry = LLRP::getTheTypeRegistry();
-    if (!pTypeRegistry) {
+    typeRegistry = LLRP::getTheTypeRegistry();
+    if (!typeRegistry) {
         emit newLogMessage(s.sprintf("ERROR: getTheTypeRegistry failed"));
         return 1;
     }
@@ -165,10 +188,10 @@ int CReader::connectToReader(void) {
      * but not actually connected to the reader yet.
      */
 
-    pConnectionToReader = new LLRP::CConnection(pTypeRegistry, 32u*1024u);
-    if (!pConnectionToReader) {
-        delete pTypeRegistry;
-        pTypeRegistry = NULL;
+    connectionToReader = new LLRP::CConnection(typeRegistry, 32u*1024u);
+    if (!connectionToReader) {
+        delete typeRegistry;
+        typeRegistry = NULL;
         emit newLogMessage(s.sprintf("ERROR: new CConnection failed"));
         return 2;
     }
@@ -179,13 +202,13 @@ int CReader::connectToReader(void) {
 
     emit newLogMessage(s.sprintf("INFO: Connecting to reader %d at %s....", readerId, hostName.toLatin1().data()));
 
-    rc = pConnectionToReader->openConnectionToReader(hostName.toLatin1().data());
+    rc = connectionToReader->openConnectionToReader(hostName.toLatin1().data());
     if (rc) {
-        emit newLogMessage(s.sprintf("ERROR: openConnectionToReader(id=%d):: %s, error code %d", readerId, pConnectionToReader->getConnectError(), rc));
-        delete pTypeRegistry;
-        pTypeRegistry = NULL;
-        delete pConnectionToReader;
-        pConnectionToReader = NULL;
+        emit newLogMessage(s.sprintf("ERROR: openConnectionToReader(id=%d):: %s, error code %d", readerId, connectionToReader->getConnectError(), rc));
+        delete typeRegistry;
+        typeRegistry = NULL;
+        delete connectionToReader;
+        connectionToReader = NULL;
         return 3;
     }
 
@@ -982,6 +1005,8 @@ int CReader::processReports(void) {
     // If not, timeout and clear currentTagsList.  Don't make the timeout too short, because
     // if the reader report is delayed for any reason (
 
+//    qDebug() << "processReports";
+
     pMessage = recvMessage(5000);
     if (!pMessage) {
         processTagList(NULL);
@@ -1149,8 +1174,10 @@ void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
     }
 
 
-    // Loop through new tag list.  If tag is in current list, rider is sitting in antenna zone. Do nothing.
-    // If tag is not in list, rider has just arrived in antenna zone so add to list and emit signal.
+    // Loop through new tag list.
+    // If tag is in current list, rider is sitting in antenna zone, so emit newTag signal only if desk reader.
+    // If tag is not in list, rider has just arrived in antenna zone, so add to list and emit newTag signal
+    // for both desk and track readers.
 
     for (int i=0; i<newTagsList.size(); i++) {
         bool inList = false;
@@ -1160,12 +1187,15 @@ void CReader::processTagList (LLRP::CRO_ACCESS_REPORT *pRO_ACCESS_REPORT) {
                 break;
             }
         }
-        if (!inList) {
+        if (inList) {
+            if (antennaPosition == desk)
+                emit newTag(newTagsList[i]);
+        }
+        else {
             currentTagsList.append(newTagsList[i]);
             emit newTag(newTagsList[i]);
         }
-        printf("  %s\n", newTagsList[i].tagId.toLatin1().data());
-        fflush(stdout);
+        //qDebug("  %s", newTagsList[i].tagId.data());
     }
 }
 
@@ -1403,10 +1433,10 @@ LLRP::CMessage *CReader::transact(LLRP::CMessage *pSendMsg) {
      * an error. In that case we try to print the error details.
      */
 
-    pRspMsg = pConnectionToReader->transact(pSendMsg, 3000);
+    pRspMsg = connectionToReader->transact(pSendMsg, 3000);
 
     if (NULL == pRspMsg) {
-        const LLRP::CErrorDetails *   pError = pConnectionToReader->getTransactError();
+        const LLRP::CErrorDetails *   pError = connectionToReader->getTransactError();
 
         emit newLogMessage(s.sprintf("ERROR: %s transact failed, %s", pSendMsg->m_pType->m_pName, pError->m_pWhatStr ? pError->m_pWhatStr : "no reason given"));
 
@@ -1485,7 +1515,7 @@ LLRP::CMessage *CReader::recvMessage(int nMaxMS) {
      * Receive the message subject to a time limit
      */
 
-    pMessage = pConnectionToReader->recvMessage(nMaxMS);
+    pMessage = connectionToReader->recvMessage(nMaxMS);
 
     /*
      * If LLRP::CConnection::recvMessage() returns NULL then there was
@@ -1493,7 +1523,7 @@ LLRP::CMessage *CReader::recvMessage(int nMaxMS) {
      */
 
     if (NULL == pMessage) {
-        const LLRP::CErrorDetails *   pError = pConnectionToReader->getRecvError();
+        const LLRP::CErrorDetails *   pError = connectionToReader->getRecvError();
 
         //emit newLogMessage(s.sprintf("ERROR: recvMessage failed, %s", pError->m_pWhatStr ? pError->m_pWhatStr : "no reason given"));
 
@@ -1561,8 +1591,8 @@ int CReader::sendMessage (LLRP::CMessage *pSendMsg) {
      * the error details.
      */
 
-    if (LLRP::RC_OK != pConnectionToReader->sendMessage(pSendMsg)) {
-        const LLRP::CErrorDetails *   pError = pConnectionToReader->getSendError();
+    if (LLRP::RC_OK != connectionToReader->sendMessage(pSendMsg)) {
+        const LLRP::CErrorDetails *   pError = connectionToReader->getSendError();
 
         emit newLogMessage(s.sprintf("ERROR: %s sendMessage failed, %s", pSendMsg->m_pType->m_pName, pError->m_pWhatStr ? pError->m_pWhatStr : "no reason given"));
 
@@ -1818,7 +1848,7 @@ int CReader::setReaderConfiguration(void) {
 
     // Build a decoder to extract the message from XML
 
-    pDecoder = new LLRP::CXMLTextDecoder(pTypeRegistry, "../fcvtc/readerConfig.xml");
+    pDecoder = new LLRP::CXMLTextDecoder(typeRegistry, "../fcvtc/readerConfig.xml");
     if (NULL == pDecoder) {
         return -1;
     }
@@ -1909,10 +1939,6 @@ int CReader::setReaderConfiguration(void) {
 
     return 0;
 }
-
-
-
-
 
 
 

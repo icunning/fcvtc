@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>940</width>
+    <width>1177</width>
     <height>735</height>
    </rect>
   </property>
@@ -22,14 +22,14 @@
   <widget class="QWidget" name="centralWidget">
    <layout class="QGridLayout" name="gridLayout_4">
     <item row="0" column="0" colspan="5">
-     <widget class="QLabel" name="trackNameLabel">
+     <widget class="QLabel" name="trackNameTitleLabel">
       <property name="font">
        <font>
         <pointsize>18</pointsize>
        </font>
       </property>
       <property name="text">
-       <string>Track</string>
+       <string>TrackName</string>
       </property>
       <property name="alignment">
        <set>Qt::AlignCenter</set>
@@ -119,13 +119,20 @@
        </sizepolicy>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>4</number>
       </property>
       <widget class="QWidget" name="ridersTab">
        <attribute name="title">
         <string>Riders</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout_3">
+        <item row="0" column="0">
+         <widget class="QCheckBox" name="activeRidersTableSortedCheckBox">
+          <property name="text">
+           <string>Table Sorted</string>
+          </property>
+         </widget>
+        </item>
         <item row="1" column="0">
          <widget class="QTableWidget" name="activeRidersTableWidget">
           <property name="sizePolicy">
@@ -183,17 +190,6 @@
           </column>
           <column>
            <property name="text">
-            <string>Time</string>
-           </property>
-           <property name="font">
-            <font>
-             <weight>75</weight>
-             <bold>true</bold>
-            </font>
-           </property>
-          </column>
-          <column>
-           <property name="text">
             <string>Laps</string>
            </property>
            <property name="font">
@@ -205,7 +201,7 @@
           </column>
           <column>
            <property name="text">
-            <string>Best Time</string>
+            <string>L km/h</string>
            </property>
            <property name="font">
             <font>
@@ -216,7 +212,7 @@
           </column>
           <column>
            <property name="text">
-            <string>Avg Time</string>
+            <string>Best L km/h</string>
            </property>
            <property name="font">
             <font>
@@ -225,13 +221,94 @@
             </font>
            </property>
           </column>
-         </widget>
-        </item>
-        <item row="0" column="0">
-         <widget class="QCheckBox" name="activeRidersTableSortedCheckBox">
-          <property name="text">
-           <string>Table Sorted</string>
-          </property>
+          <column>
+           <property name="text">
+            <string>km</string>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>Ave km/h</string>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>This M km</string>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>This M km/h</string>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>Last M km</string>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>Last M km/h</string>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>Total km</string>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>Comment</string>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+          </column>
          </widget>
         </item>
        </layout>
@@ -339,7 +416,18 @@
           </column>
           <column>
            <property name="text">
-            <string>Black-Line Lap km/h</string>
+            <string>Lap km/h</string>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>Comment</string>
            </property>
            <property name="font">
             <font>
@@ -385,240 +473,704 @@
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="configTab">
+      <widget class="QWidget" name="deskDBaseTab">
        <attribute name="title">
-        <string>Config</string>
+        <string>DataBase</string>
        </attribute>
        <layout class="QGridLayout" name="gridLayout_5">
-        <item row="3" column="5">
-         <widget class="QComboBox" name="antenna4ComboBox_2">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="5">
-         <widget class="QComboBox" name="antenna4ComboBox">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="0" colspan="6">
-         <widget class="QLabel" name="configLabel">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="font">
-           <font>
-            <pointsize>12</pointsize>
-           </font>
-          </property>
+        <item row="0" column="0">
+         <widget class="QLabel" name="deskTagIdLabel">
           <property name="text">
-           <string>Do not change these settings unless you know what you are doing.  Incorrect settings will prevent proper operation.</string>
-          </property>
-          <property name="wordWrap">
-           <bool>true</bool>
+           <string>TagId</string>
           </property>
          </widget>
         </item>
-        <item row="2" column="3">
-         <widget class="QComboBox" name="antenna2ComboBox">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
+        <item row="0" column="1">
+         <widget class="QLabel" name="deskFirstNameLabel">
+          <property name="text">
+           <string>First Name</string>
           </property>
          </widget>
         </item>
-        <item row="2" column="4">
-         <widget class="QComboBox" name="antenna3ComboBox">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="1">
-         <widget class="QComboBox" name="comboBox">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
+        <item row="0" column="3">
+         <widget class="QLabel" name="deskLastNameLabel">
+          <property name="text">
+           <string>Last Name</string>
           </property>
          </widget>
         </item>
         <item row="1" column="0">
-         <widget class="QLabel" name="IPLabel">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="text">
-           <string>Tag Reader IP</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
+         <widget class="QLineEdit" name="deskTagIdLineEdit"/>
         </item>
-        <item row="1" column="2">
-         <widget class="QLabel" name="antenna1Label">
-          <property name="text">
-           <string>Antenna 1 Power</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
+        <item row="1" column="1" colspan="2">
+         <widget class="QLineEdit" name="deskFirstNameLineEdit"/>
         </item>
-        <item row="1" column="3">
-         <widget class="QLabel" name="antenna2Label">
-          <property name="text">
-           <string>Antenna 2 Power</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="4">
-         <widget class="QLabel" name="antenna3Label">
-          <property name="text">
-           <string>Antenna 3 Power</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="5">
-         <widget class="QLabel" name="antenna4Label">
-          <property name="text">
-           <string>Antenna 4 Power</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
+        <item row="1" column="3" colspan="3">
+         <widget class="QLineEdit" name="deskLastNameLineEdit"/>
         </item>
         <item row="2" column="0">
-         <widget class="QLineEdit" name="lineEdit"/>
+         <widget class="QPushButton" name="deskReadPushButton">
+          <property name="text">
+           <string>ReadTag</string>
+          </property>
+          <property name="checkable">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QPushButton" name="deskSearchPushButton">
+          <property name="text">
+           <string>Search</string>
+          </property>
+         </widget>
         </item>
         <item row="2" column="2">
-         <widget class="QComboBox" name="antenna1ComboBox">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="2">
-         <widget class="QComboBox" name="antenna1ComboBox_2">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="3">
-         <widget class="QComboBox" name="antenna2ComboBox_2">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="4">
-         <widget class="QComboBox" name="antenna3ComboBox_2">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="1">
-         <widget class="QLabel" name="fuinctonLabel">
+         <widget class="QPushButton" name="deskAddPushButton">
           <property name="text">
-           <string>Function</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
+           <string>Add</string>
           </property>
          </widget>
         </item>
-        <item row="3" column="0">
-         <widget class="QLineEdit" name="lineEdit_2"/>
+        <item row="2" column="3">
+         <widget class="QPushButton" name="deskClearPushButton">
+          <property name="text">
+           <string>Clear</string>
+          </property>
+         </widget>
         </item>
-        <item row="3" column="1">
-         <widget class="QComboBox" name="comboBox_2">
+        <item row="2" column="4">
+         <widget class="QPushButton" name="deskRemovePushButton">
+          <property name="text">
+           <string>Remove</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="5">
+         <widget class="QPushButton" name="deskUpdatePushButton">
+          <property name="text">
+           <string>Update</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0" colspan="6">
+         <widget class="QTableWidget" name="namesTableWidget">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
+           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+            <horstretch>10</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
+          <property name="alternatingRowColors">
+           <bool>true</bool>
+          </property>
+          <property name="selectionMode">
+           <enum>QAbstractItemView::NoSelection</enum>
+          </property>
+          <property name="sortingEnabled">
+           <bool>true</bool>
+          </property>
+          <attribute name="horizontalHeaderDefaultSectionSize">
+           <number>250</number>
+          </attribute>
+          <attribute name="horizontalHeaderStretchLastSection">
+           <bool>false</bool>
+          </attribute>
+          <column>
+           <property name="text">
+            <string notr="true">TagId</string>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string notr="true">FirstName</string>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>LastName</string>
+           </property>
+          </column>
          </widget>
-        </item>
-        <item row="4" column="0" colspan="6">
-         <spacer name="verticalSpacer">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>20</width>
-            <height>40</height>
-           </size>
-          </property>
-         </spacer>
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="tab">
+      <widget class="QWidget" name="settingsTab">
        <attribute name="title">
-        <string>DataBase</string>
+        <string>Settings</string>
        </attribute>
-       <widget class="QLineEdit" name="deskTagIdLineEdit">
+       <widget class="QComboBox" name="deskAntenna4PowerComboBox">
         <property name="geometry">
          <rect>
-          <x>40</x>
-          <y>40</y>
-          <width>179</width>
+          <x>760</x>
+          <y>420</y>
+          <width>79</width>
           <height>23</height>
          </rect>
         </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="toolTip">
+         <string>Select power setting for antenna.</string>
+        </property>
        </widget>
-       <widget class="QLineEdit" name="deskTagNameLineEdit">
+       <widget class="QComboBox" name="trackAntenna4PowerComboBox">
         <property name="geometry">
          <rect>
-          <x>240</x>
-          <y>40</y>
-          <width>391</width>
+          <x>760</x>
+          <y>280</y>
+          <width>79</width>
           <height>23</height>
+         </rect>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="toolTip">
+         <string>Select power setting for antenna.</string>
+        </property>
+       </widget>
+       <widget class="QLabel" name="configLabel">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>20</y>
+          <width>1121</width>
+          <height>51</height>
+         </rect>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="font">
+         <font>
+          <pointsize>12</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>Do not change these settings unless you know what you are doing.  Incorrect settings will prevent proper operation.</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+       <widget class="QComboBox" name="trackAntenna2PowerComboBox">
+        <property name="geometry">
+         <rect>
+          <x>540</x>
+          <y>280</y>
+          <width>79</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="toolTip">
+         <string>Select power setting for antenna.</string>
+        </property>
+       </widget>
+       <widget class="QComboBox" name="trackAntenna3PowerComboBox">
+        <property name="geometry">
+         <rect>
+          <x>650</x>
+          <y>280</y>
+          <width>79</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="toolTip">
+         <string>Select power setting for antenna.</string>
+        </property>
+       </widget>
+       <widget class="QLabel" name="IPLabel">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>280</y>
+          <width>131</width>
+          <height>20</height>
+         </rect>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="font">
+         <font>
+          <weight>75</weight>
+          <bold>true</bold>
+         </font>
+        </property>
+        <property name="text">
+         <string>Track Reader</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+       <widget class="QLabel" name="antenna2Label">
+        <property name="geometry">
+         <rect>
+          <x>540</x>
+          <y>260</y>
+          <width>81</width>
+          <height>16</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Antenna 2</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+       <widget class="QLabel" name="antenna3Label">
+        <property name="geometry">
+         <rect>
+          <x>650</x>
+          <y>260</y>
+          <width>81</width>
+          <height>16</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Antenna 3</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+       <widget class="QLabel" name="antenna4Label">
+        <property name="geometry">
+         <rect>
+          <x>760</x>
+          <y>260</y>
+          <width>81</width>
+          <height>16</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Antenna 4</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="trackReaderIP">
+        <property name="geometry">
+         <rect>
+          <x>150</x>
+          <y>280</y>
+          <width>125</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="toolTip">
+         <string>Enter network IP address of reader such as 192.168.1.98.
+Leave blank for simulator.</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+       <widget class="QComboBox" name="trackAntenna1PowerComboBox">
+        <property name="geometry">
+         <rect>
+          <x>430</x>
+          <y>280</y>
+          <width>79</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="toolTip">
+         <string>Select power setting for antenna.</string>
+        </property>
+       </widget>
+       <widget class="QComboBox" name="deskAntenna1PowerComboBox">
+        <property name="geometry">
+         <rect>
+          <x>430</x>
+          <y>420</y>
+          <width>79</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="toolTip">
+         <string>Select power setting for antenna.</string>
+        </property>
+       </widget>
+       <widget class="QComboBox" name="deskAntenna2PowerComboBox">
+        <property name="geometry">
+         <rect>
+          <x>540</x>
+          <y>420</y>
+          <width>79</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="toolTip">
+         <string>Select power setting for antenna.</string>
+        </property>
+       </widget>
+       <widget class="QComboBox" name="deskAntenna3PowerComboBox">
+        <property name="geometry">
+         <rect>
+          <x>650</x>
+          <y>420</y>
+          <width>79</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="toolTip">
+         <string>Select power setting for antenna.</string>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="deskReaderIP">
+        <property name="geometry">
+         <rect>
+          <x>150</x>
+          <y>420</y>
+          <width>125</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="toolTip">
+         <string>Enter network IP address of reader such as 192.168.1.98.
+Leave blank for simulator.</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+       <widget class="QLabel" name="fuinctonLabel">
+        <property name="geometry">
+         <rect>
+          <x>280</x>
+          <y>280</y>
+          <width>141</width>
+          <height>16</height>
+         </rect>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Transmit Power:</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
+       </widget>
+       <widget class="QLabel" name="antenna1Label">
+        <property name="geometry">
+         <rect>
+          <x>430</x>
+          <y>260</y>
+          <width>81</width>
+          <height>16</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Antenna 1</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+       <widget class="QLabel" name="IPLabel_2">
+        <property name="geometry">
+         <rect>
+          <x>150</x>
+          <y>260</y>
+          <width>131</width>
+          <height>20</height>
+         </rect>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Reader IP</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+       <widget class="QLabel" name="IPLabel_3">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>420</y>
+          <width>131</width>
+          <height>20</height>
+         </rect>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="font">
+         <font>
+          <weight>75</weight>
+          <bold>true</bold>
+         </font>
+        </property>
+        <property name="text">
+         <string>Desk Reader</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+       <widget class="QLabel" name="fuinctonLabel_2">
+        <property name="geometry">
+         <rect>
+          <x>280</x>
+          <y>320</y>
+          <width>141</width>
+          <height>16</height>
+         </rect>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Track Length:</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="trackLength1LineEdit">
+        <property name="geometry">
+         <rect>
+          <x>430</x>
+          <y>320</y>
+          <width>81</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="toolTip">
+         <string>Enter length of track (m) at height of antenna.  This value is used to calculate speed.</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="trackLength2LineEdit">
+        <property name="geometry">
+         <rect>
+          <x>539</x>
+          <y>320</y>
+          <width>81</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="toolTip">
+         <string>Enter length of track (m) at height of antenna.  This value is used to calculate speed.</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="trackLength3LineEdit">
+        <property name="geometry">
+         <rect>
+          <x>649</x>
+          <y>320</y>
+          <width>81</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="toolTip">
+         <string>Enter length of track (m) at height of antenna.  This value is used to calculate speed.</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="trackLength4LineEdit">
+        <property name="geometry">
+         <rect>
+          <x>758</x>
+          <y>320</y>
+          <width>81</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="toolTip">
+         <string>Enter length of track (m) at height of antenna.  This value is used to calculate speed.</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+       <widget class="QLabel" name="tablePurgeIntervalLabel">
+        <property name="geometry">
+         <rect>
+          <x>360</x>
+          <y>90</y>
+          <width>241</width>
+          <height>20</height>
+         </rect>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Innactive Rider Purge Interval Hours</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="tablePurgeIntervalLineEdit">
+        <property name="geometry">
+         <rect>
+          <x>420</x>
+          <y>110</y>
+          <width>125</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="saveSettingsPushButton">
+        <property name="geometry">
+         <rect>
+          <x>350</x>
+          <y>480</y>
+          <width>82</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Save</string>
+        </property>
+       </widget>
+       <widget class="QLineEdit" name="trackNameLineEdit">
+        <property name="geometry">
+         <rect>
+          <x>60</x>
+          <y>110</y>
+          <width>281</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+       <widget class="QLabel" name="trackNameLabel">
+        <property name="geometry">
+         <rect>
+          <x>110</x>
+          <y>90</y>
+          <width>181</width>
+          <height>20</height>
+         </rect>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Track Name</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="applySettingsPushButton">
+        <property name="geometry">
+         <rect>
+          <x>450</x>
+          <y>480</y>
+          <width>82</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Apply</string>
+        </property>
+       </widget>
+       <widget class="QTableView" name="tableView">
+        <property name="geometry">
+         <rect>
+          <x>740</x>
+          <y>60</y>
+          <width>401</width>
+          <height>192</height>
          </rect>
         </property>
        </widget>
@@ -632,7 +1184,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>940</width>
+     <width>1177</width>
      <height>20</height>
     </rect>
    </property>

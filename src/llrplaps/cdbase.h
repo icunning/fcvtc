@@ -3,9 +3,15 @@
 
 #include <QString>
 #include <QtSql/QtSql>
-//#include <QSqlDatabase>
+#include <QSqlDatabase>
+#include <QAbstractTableModel>
 
 #include "crider.h"
+
+
+
+
+
 
 
 class CDbase
